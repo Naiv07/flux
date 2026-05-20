@@ -7,7 +7,7 @@ import {
 } from "../lib/transferStore";
 import type { TransferRecord } from "../lib/transferStore";
 
-const CHUNK_SIZE = 16 * 1024; // 16KB — better for internet connections
+const CHUNK_SIZE = 32 * 1024; // 32KB — optimal for internet P2P
 
 export type TransferStatus =
   | "idle"
@@ -180,39 +180,50 @@ export function useFileTransfer(channel: RTCDataChannel | null) {
         resuming: offset > 0,
       });
 
-      const MAX_BUFFER = 256 * 1024; // 256KB max buffer
+      // Set buffer threshold
+      channel.bufferedAmountLowThreshold = 65536; // 64KB
 
-      while (offset < file.size) {
-        // Wait for buffer to drain properly
-        while (channel.bufferedAmount > MAX_BUFFER) {
-          await new Promise((r) => setTimeout(r, 100));
-        }
+      await new Promise<void>((resolve, reject) => {
+        const sendNextChunk = async () => {
+          try {
+            while (offset < file.size) {
+              // If buffer is too full wait for drain event
+              if (channel.bufferedAmount > channel.bufferedAmountLowThreshold) {
+                channel.onbufferedamountlow = () => {
+                  channel.onbufferedamountlow = null;
+                  sendNextChunk();
+                };
+                return; // pause and wait
+              }
 
-        // Check channel is still open
-        if (channel.readyState !== "open") {
-          console.log("[Flux] Channel closed during transfer");
-          break;
-        }
+              if (channel.readyState !== "open") {
+                reject(new Error("Channel closed"));
+                return;
+              }
 
-        const chunk = file.slice(offset, offset + CHUNK_SIZE);
-        const buffer = await chunk.arrayBuffer();
-        channel.send(buffer);
-        offset += buffer.byteLength;
+              const chunk = file.slice(offset, offset + CHUNK_SIZE);
+              const buffer = await chunk.arrayBuffer();
+              channel.send(buffer);
+              offset += buffer.byteLength;
 
-        const percentage = Math.round((offset / file.size) * 100);
-        setProgress({
-          fileName: file.name,
-          fileSize: file.size,
-          transferred: offset,
-          percentage,
-          status: "sending",
-        });
+              setProgress({
+                fileName: file.name,
+                fileSize: file.size,
+                transferred: offset,
+                percentage: Math.round((offset / file.size) * 100),
+                status: "sending",
+              });
+            }
 
-        // Small yield every 10 chunks to keep UI responsive
-        if ((offset / CHUNK_SIZE) % 10 === 0) {
-          await new Promise((r) => setTimeout(r, 0));
-        }
-      }
+            // All chunks sent
+            resolve();
+          } catch (err) {
+            reject(err);
+          }
+        };
+
+        sendNextChunk();
+      });
 
       channel.send(JSON.stringify({ type: "file-complete" }));
       setProgress((prev) => ({
@@ -220,6 +231,7 @@ export function useFileTransfer(channel: RTCDataChannel | null) {
         status: "complete",
         percentage: 100,
       }));
+      console.log("[Flux] File sent:", file.name);
     },
     [channel]
   );
