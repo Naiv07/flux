@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import type { ConnectionState } from "../types";
 
-const SIGNALING_SERVER = "ws://localhost:8080/ws";
+const SIGNALING_SERVER = import.meta.env.VITE_SIGNALING_SERVER || "ws://localhost:8080/ws";
 
 const ICE_SERVERS = {
   iceServers: [
