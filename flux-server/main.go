@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"os"
 	"sync"
 
 	"github.com/gorilla/websocket"
@@ -213,8 +214,12 @@ func main() {
 		w.Write([]byte("Flux signaling server running"))
 	})
 
-	log.Println("Flux signaling server starting on :8080")
-	if err := http.ListenAndServe(":8080", nil); err != nil {
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+	log.Println("Flux signaling server starting on :" + port)
+	if err := http.ListenAndServe(":"+port, nil); err != nil {
 		log.Fatal("Server error:", err)
 	}
 }
