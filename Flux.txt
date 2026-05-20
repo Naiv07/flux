@@ -1,0 +1,349 @@
+================================================================
+                        FLUX
+           Cross-Platform P2P Sharing Application
+================================================================
+
+"No cloud. Just connection."
+
+----------------------------------------------------------------
+WHAT IT IS
+----------------------------------------------------------------
+Flux is a cross-platform, peer-to-peer sharing application that
+connects any two devices directly over the internet — with zero
+cloud storage, zero third-party apps, and zero cost to launch.
+
+Fully end-to-end encrypted. Direct. Fast. Beautiful.
+
+----------------------------------------------------------------
+WHAT USERS CAN SHARE
+----------------------------------------------------------------
+- Any file (documents, images, videos, audio, archives)
+- Large files (resumable transfers, no size limit)
+- Text messages and clipboard content
+- Live screen sharing
+- Camera and microphone streaming
+- Folders (chunked or zipped)
+
+----------------------------------------------------------------
+PLATFORMS
+----------------------------------------------------------------
+- Web Browser (any device)
+- PWA — installable on Android + Desktop
+- React Native — native Android + iOS apps (Phase 4)
+- Works across Mobile <-> Desktop simultaneously
+
+----------------------------------------------------------------
+SECURITY MODEL
+----------------------------------------------------------------
+Encryption       : DTLS + AES-256 + Curve25519 (WebRTC built-in)
+Key Exchange     : Curve25519 (Perfect Forward Secrecy)
+End-to-End       : Always on, cannot be disabled
+Signaling Server : Sees session codes only, never file content
+STUN Servers     : See public IPs only, never file content
+Backend          : Never sees, stores, or touches file content
+Passwords        : Hashed with bcrypt, never stored plain
+
+----------------------------------------------------------------
+TECH STACK
+----------------------------------------------------------------
+
+FRONTEND
+  Framework       : React + TypeScript + Vite
+  Styling         : TailwindCSS + Glassmorphism
+  Animations      : Framer Motion + Rive
+  3D Background   : React Three Fiber (particle system)
+  State           : Zustand
+  Icons           : Lucide React
+  Font            : Inter Variable
+  Performance     : Web Workers (heavy processing off main thread)
+  Target          : 60fps UI, GPU-only animations
+
+MOBILE
+  Framework       : React Native + NativeWind
+  WebRTC          : react-native-webrtc
+  Animations      : Reanimated 3 + Gesture Handler
+  Ship order      : PWA first, Native app second
+
+BACKEND (Signaling Only)
+  Language        : Go
+  Protocol        : WebSocket
+  Role            : Broker handshake between peers, then steps out
+  After handshake : Completely out of the picture
+
+DATABASE
+  Primary         : PostgreSQL (via Supabase)
+  Cache           : Redis (via Upstash)
+  Stores          : User accounts, session metadata, public keys
+  Never stores    : File content, message content
+
+P2P LAYER
+  Tunnel          : WebRTC DataChannel
+  NAT Traversal   : ICE + STUN (automatic)
+  File Transfer   : Chunked (64KB chunks) + resumable
+  Streaming       : WebRTC MediaStream (screen, camera, mic)
+
+STUN SERVERS (Redundant, Automatic Fallback)
+  1st Priority    : stun.cloudflare.com:3478
+  2nd Priority    : openrelay.metered.ca:80
+  3rd Priority    : stun.stunprotocol.org:3478
+  4th Priority    : stun.l.google.com:19302 (last resort)
+
+----------------------------------------------------------------
+DATA FLOW
+----------------------------------------------------------------
+
+  User A                                          User B
+    |                                               |
+    |-------> Signaling Server (Go/WebSocket) <-----|
+    |         [Exchange SDP offer/answer]           |
+    |         [Server steps out after handshake]    |
+    |                                               |
+    |-------> STUN Server [Discover public IPs] <---|
+    |                                               |
+    |<============ WebRTC DataChannel E2EE ========>|
+              [Direct P2P — backend is blind]
+
+----------------------------------------------------------------
+DESIGN LANGUAGE
+----------------------------------------------------------------
+Theme           : Dark glassmorphism
+Background      : #0a0a0f (deep space black)
+Surface         : rgba(255,255,255,0.05) — glass effect
+Primary         : #6c63ff (electric purple)
+Accent          : #00d4ff (cyan — active connection)
+Success         : #00ff88 (neon green — transfer complete)
+Text            : #e8e8f0 (soft white)
+
+Micro interactions:
+  - Particles converge when connection established
+  - Progress ring with flowing gradient during transfer
+  - Burst animation on transfer complete
+  - Particles scatter on disconnect
+
+----------------------------------------------------------------
+HOSTING — $0 TO LAUNCH
+----------------------------------------------------------------
+  Web App         : Vercel (free)
+  Signaling Server: Fly.io (free tier)
+  PostgreSQL      : Supabase (free tier)
+  Redis           : Upstash (free tier)
+  STUN            : Cloudflare + fallbacks (free)
+  Mobile          : PWA (free) / Play Store ($25 one-time)
+
+----------------------------------------------------------------
+DEVELOPMENT ENVIRONMENT
+----------------------------------------------------------------
+  IDE             : VS Code
+  Preview         : Live Preview extension (Microsoft)
+  Hot Reload      : Vite (~50ms updates)
+  Mobile Preview  : Expo Tools + Expo Go
+  Component Dev   : Storybook
+  API Testing     : Thunder Client (VS Code extension)
+
+Key Extensions:
+  ESLint, Prettier, Tailwind IntelliSense,
+  Go (by Google), SQLTools, GitLens,
+  Error Lens, Auto Rename Tag, Thunder Client
+
+----------------------------------------------------------------
+BUILD PHASES
+----------------------------------------------------------------
+
+  Phase 1 — Core
+    - Signaling server (Go + WebSocket)
+    - Basic WebRTC connection between two devices
+    - File transfer with chunking + resumable logic
+
+  Phase 2 — UI
+    - Dark glassmorphism design system
+    - Rive interactive animations
+    - Framer Motion page transitions
+    - React Three Fiber particle background
+    - 60fps enforced throughout
+
+  Phase 3 — Polish
+    - Resumable large file transfers
+    - Screen sharing
+    - Live camera/mic streaming
+    - PWA setup (installable)
+    - Low-end device detection + graceful scaling
+
+  Phase 4 — Mobile
+    - React Native app (Android + iOS)
+    - App Store + Play Store release
+    - ~70% code shared with web
+
+----------------------------------------------------------------
+BUNDLE TARGET
+----------------------------------------------------------------
+  Rive animations     < 100kb
+  Three.js scene      < 50 draw calls
+  Total JS bundle     < 200kb gzipped
+  Font (Inter)        1 variable font file
+
+----------------------------------------------------------------
+PROJECT IDENTITY
+----------------------------------------------------------------
+  Name            : Flux
+  Tagline         : "No cloud. Just connection."
+  Inspiration     : AirDrop + ShareDrop + Signal — combined
+  Differentiator  : Cross-platform, internet-wide, E2EE,
+                    no install needed, zero cloud storage
+
+----------------------------------------------------------------
+BUILD ORDER & STRATEGY
+----------------------------------------------------------------
+
+Golden Rule:
+  Build from the inside out — core functionality first,
+  beauty second. A beautiful app that doesn't work is useless.
+  An ugly app that works perfectly can be shipped.
+
+  Foundation → Core → Features → UI → Polish → Mobile
+
+WEEK 1 — Foundation & Core
+  Day 1     Project scaffold
+              flux/
+              ├── flux-web/      (React + TypeScript + Vite)
+              ├── flux-server/   (Go signaling server)
+              └── flux-mobile/   (React Native — later)
+
+  Day 2-3   Go signaling server
+              - WebSocket server in Go
+              - Brokers SDP offer/answer between peers
+              - 100-200 lines, test with Thunder Client
+              - Without this, WebRTC cannot start
+
+  Day 4-5   Raw WebRTC connection
+              - No UI yet, just two browser tabs connecting
+              - Tab A sends "hello" → Tab B receives "hello"
+              - Proves the core works before building on top
+
+WEEK 2 — Features & Basic UI
+  Day 6-8   File transfer engine
+              - 64KB chunking logic
+              - Progress tracking
+              - Reassembly on receiver side
+              - Resumable transfer state (IndexedDB)
+              - Hardest technical piece — debug early
+
+  Day 9-12  Basic UI shell
+              - Connect screen
+              - Transfer screen
+              - Progress screen
+              - Functionality only, no animations yet
+
+WEEK 3 — Design & PWA
+  Day 13-18  Full design layer
+              - Glassmorphism cards + dark theme
+              - Framer Motion page transitions
+              - Rive interactive animations
+              - React Three Fiber particle background
+              - 60fps enforced, GPU-only animations
+
+  Day 19-20  PWA setup
+              - manifest.json
+              - Service Worker
+              - Installable on Android + Desktop
+
+WEEK 4 — Testing & Polish
+  Day 21-25  Testing + edge cases
+              - Mobile <-> Desktop connection tests
+              - Large file transfer tests
+              - Different network condition tests
+              - Low-end device graceful scaling
+              - iOS Safari background behavior handling
+
+  Day 26+    React Native
+              - Only after web version is fully working
+              - Reuse ~70% of web logic
+              - Build native UI on top
+
+WHY THIS ORDER
+  Start with UI first   →  Build on nothing, rebuild when logic changes
+  Start with mobile     →  Web bugs break mobile too, fix web first
+  Start with design     →  Animations hiding broken WebRTC = nightmare
+  Start with backend    →  Frontend has nothing to connect to ✅ correct
+
+Strategic Start Point:
+  The Go signaling server — once two devices can shake hands,
+  everything else is just building rooms around that handshake.
+
+----------------------------------------------------------------
+MILESTONE LOG
+----------------------------------------------------------------
+
+  MILESTONE 1 — Core P2P Connection ✅
+  Date          : 20 May 2026
+  Status        : COMPLETE
+
+  Achievements:
+    - Go signaling server running on :8080
+    - WebRTC DataChannel established between two peers
+    - SDP offer/answer exchange working
+    - ICE candidate negotiation working
+    - Direct P2P tunnel formed (backend stepped out)
+    - DTLS encryption active
+    - Text message sent and received successfully
+    - Full round trip in under 4 seconds
+
+  Stack confirmed working:
+    - Node v24.13.0
+    - Go v1.26.3
+    - React + TypeScript + Vite
+    - TailwindCSS
+    - gorilla/websocket
+    - WebRTC (browser built-in)
+
+  MILESTONE 2 — File Transfer Engine ✅
+  Date          : 20 May 2026
+  Status        : COMPLETE
+
+  Achievements:
+    - File chunking (64KB chunks) working
+    - Progress tracking on both sender and receiver
+    - Auto download on receiver side
+    - 1MB image transferred successfully
+    - Zero bytes touched the server
+    - Pure P2P file transfer confirmed
+
+  MILESTONE 3 — UI Design Layer ✅
+  Date          : 20 May 2026
+  Status        : COMPLETE
+
+  Achievements:
+    - Baby blue particle background (3000 particles, full screen)
+    - Glassmorphism cards with blur + border
+    - Framer Motion animations (fade in, scale, bounce)
+    - Gradient Flux title (purple to cyan)
+    - Connected state (green wifi icon + pulsing dot)
+    - Transfer card with progress bar + glow
+    - File transfer complete state
+    - 60fps GPU animations throughout
+    - Full inline styles (Tailwind purge bypassed)
+
+  MILESTONE 4 — Screen Sharing + Disconnect ✅
+  Date          : 21 May 2026
+  Status        : COMPLETE
+
+  Achievements:
+    - Live screen sharing via WebRTC MediaStream
+    - Chrome tab/window/screen picker working
+    - Remote stream received on other peer
+    - Stop sharing button working
+    - Disconnect button added (red glass style)
+    - Clean session teardown on disconnect
+    - All three cards visible when connected:
+      Connection card, Transfer card, Screen Share card
+
+  Next Milestone:
+    - Resumable file transfers (IndexedDB)
+    - Mobile testing
+    - Deploy to production (Vercel + Fly.io)
+
+
+
+================================================================
+                     BUILT BY DEVELOPERS,
+                       FOR EVERYONE.
+================================================================
