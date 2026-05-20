@@ -35,9 +35,10 @@ function App() {
       flexDirection: "column",
       alignItems: "center",
       justifyContent: "center",
-      padding: "24px",
+      padding: "16px", 
       gap: "16px",
       position: "relative",
+      overflowY: "auto",  
     }}>
       <ParticleBackground connected={isConnected} />
       <div style={{
