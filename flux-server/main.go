@@ -202,6 +202,9 @@ func handleConnection(w http.ResponseWriter, r *http.Request) {
 				room.broadcast(client, rawMsg)
 				log.Printf("Forwarded %s in room %s", msg.Type, client.roomCode)
 			}
+		case "ping":
+			// just ignore — keeps connection alive
+			log.Println("Ping received")
 		}
 	}
 }
