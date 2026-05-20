@@ -7,7 +7,7 @@ import {
 } from "../lib/transferStore";
 import type { TransferRecord } from "../lib/transferStore";
 
-const CHUNK_SIZE = 65536;
+const CHUNK_SIZE = 16 * 1024; // 16KB — better for internet connections
 
 export type TransferStatus =
   | "idle"
@@ -180,10 +180,18 @@ export function useFileTransfer(channel: RTCDataChannel | null) {
         resuming: offset > 0,
       });
 
-      // Send chunks
+      const MAX_BUFFER = 256 * 1024; // 256KB max buffer
+
       while (offset < file.size) {
-        if (channel.bufferedAmount > 1048576) {
-          await new Promise((r) => setTimeout(r, 50));
+        // Wait for buffer to drain properly
+        while (channel.bufferedAmount > MAX_BUFFER) {
+          await new Promise((r) => setTimeout(r, 100));
+        }
+
+        // Check channel is still open
+        if (channel.readyState !== "open") {
+          console.log("[Flux] Channel closed during transfer");
+          break;
         }
 
         const chunk = file.slice(offset, offset + CHUNK_SIZE);
@@ -199,6 +207,11 @@ export function useFileTransfer(channel: RTCDataChannel | null) {
           percentage,
           status: "sending",
         });
+
+        // Small yield every 10 chunks to keep UI responsive
+        if ((offset / CHUNK_SIZE) % 10 === 0) {
+          await new Promise((r) => setTimeout(r, 0));
+        }
       }
 
       channel.send(JSON.stringify({ type: "file-complete" }));
