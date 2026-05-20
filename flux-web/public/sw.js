@@ -1,4 +1,4 @@
-const CACHE_NAME = "flux-v3";  // bump version number
+const CACHE_NAME = "flux-v5";
 
 const STATIC_ASSETS = [
   "/",

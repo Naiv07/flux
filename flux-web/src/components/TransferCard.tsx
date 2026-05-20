@@ -1,24 +1,40 @@
 import { useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Upload, Download, CheckCircle } from "lucide-react";
+import { Upload, Download, CheckCircle, Pause, Play, X } from "lucide-react";
 import type { TransferProgress } from "../hooks/useFileTransfer";
 
 interface Props {
   progress: TransferProgress;
   sendFile: (file: File) => void;
   formatBytes: (bytes: number) => string;
+  pauseTransfer: () => void;
+  resumeTransfer: () => void;
+  cancelTransfer: () => void;
 }
 
-export function TransferCard({ progress, sendFile, formatBytes }: Props) {
+export function TransferCard({
+  progress,
+  sendFile,
+  formatBytes,
+  pauseTransfer,
+  resumeTransfer,
+  cancelTransfer,
+}: Props) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const isSending   = progress.status === "sending";
   const isReceiving = progress.status === "receiving";
+  const isPaused    = progress.status === "paused";
   const isComplete  = progress.status === "complete";
-  const isActive    = isSending || isReceiving;
+  const isCancelled = progress.status === "cancelled";
+  const isActive    = isSending || isReceiving || isPaused;
 
   const progressColor = isComplete
     ? "#00ff88"
+    : isCancelled
+    ? "#ff6b6b"
+    : isPaused
+    ? "#fbbf24"
     : isSending
     ? "#6c63ff"
     : "#89CFF0";
@@ -42,7 +58,6 @@ export function TransferCard({ progress, sendFile, formatBytes }: Props) {
         gap: "20px",
       }}
     >
-      {/* Title */}
       <p style={{
         fontSize: "11px",
         fontWeight: "600",
@@ -53,7 +68,6 @@ export function TransferCard({ progress, sendFile, formatBytes }: Props) {
         Transfer
       </p>
 
-      {/* Hidden file input */}
       <input
         ref={fileInputRef}
         type="file"
@@ -64,7 +78,6 @@ export function TransferCard({ progress, sendFile, formatBytes }: Props) {
         }}
       />
 
-      {/* Drop zone button */}
       <motion.button
         whileHover={{ scale: 1.02 }}
         whileTap={{ scale: 0.98 }}
@@ -81,7 +94,6 @@ export function TransferCard({ progress, sendFile, formatBytes }: Props) {
           gap: "12px",
           cursor: isActive ? "not-allowed" : "pointer",
           opacity: isActive ? 0.4 : 1,
-          transition: "all 0.2s",
           width: "100%",
         }}
       >
@@ -99,7 +111,6 @@ export function TransferCard({ progress, sendFile, formatBytes }: Props) {
         </p>
       </motion.button>
 
-      {/* Progress */}
       <AnimatePresence>
         {progress.status !== "idle" && (
           <motion.div
@@ -108,7 +119,7 @@ export function TransferCard({ progress, sendFile, formatBytes }: Props) {
             exit={{ opacity: 0, height: 0 }}
             style={{ display: "flex", flexDirection: "column", gap: "12px" }}
           >
-            {/* File info row */}
+            {/* File info */}
             <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
               <div style={{
                 width: "36px",
@@ -122,6 +133,8 @@ export function TransferCard({ progress, sendFile, formatBytes }: Props) {
               }}>
                 {isComplete ? (
                   <CheckCircle style={{ width: "16px", height: "16px", color: "#00ff88" }} />
+                ) : isCancelled ? (
+                  <X style={{ width: "16px", height: "16px", color: "#ff6b6b" }} />
                 ) : isSending ? (
                   <Upload style={{ width: "16px", height: "16px", color: "#6c63ff" }} />
                 ) : (
@@ -138,7 +151,7 @@ export function TransferCard({ progress, sendFile, formatBytes }: Props) {
                   textOverflow: "ellipsis",
                   whiteSpace: "nowrap",
                 }}>
-                  {progress.fileName}
+                  {progress.fileName || "—"}
                 </p>
                 <p style={{ fontSize: "12px", color: "#6b7280", marginTop: "2px" }}>
                   {formatBytes(progress.transferred)} of {formatBytes(progress.fileSize)}
@@ -172,6 +185,10 @@ export function TransferCard({ progress, sendFile, formatBytes }: Props) {
                   borderRadius: "999px",
                   background: isComplete
                     ? "#00ff88"
+                    : isCancelled
+                    ? "#ff6b6b"
+                    : isPaused
+                    ? "#fbbf24"
                     : "linear-gradient(90deg, #6c63ff, #89CFF0)",
                   boxShadow: `0 0 10px ${progressColor}66`,
                 }}
@@ -184,14 +201,91 @@ export function TransferCard({ progress, sendFile, formatBytes }: Props) {
               textAlign: "center",
               color: progressColor,
             }}>
-              {progress.status === "complete"
-                ? "Transfer complete"
-                : progress.status === "resuming"
-                ? "Resuming transfer..."
-                : progress.status === "sending"
-                ? "Sending..."
+              {isComplete ? "Transfer complete"
+                : isCancelled ? "Transfer cancelled"
+                : isPaused ? "Paused"
+                : isSending ? "Sending..."
                 : "Receiving..."}
             </p>
+
+            {/* Pause / Resume / Cancel buttons */}
+            {isActive && (
+              <div style={{ display: "flex", gap: "8px" }}>
+                {isPaused ? (
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={resumeTransfer}
+                    style={{
+                      flex: 1,
+                      background: "rgba(108,99,255,0.15)",
+                      border: "1px solid rgba(108,99,255,0.3)",
+                      borderRadius: "10px",
+                      padding: "10px",
+                      fontSize: "13px",
+                      fontWeight: "600",
+                      color: "#6c63ff",
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: "6px",
+                    }}
+                  >
+                    <Play style={{ width: "14px", height: "14px" }} />
+                    Resume
+                  </motion.button>
+                ) : (
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={pauseTransfer}
+                    style={{
+                      flex: 1,
+                      background: "rgba(251,191,36,0.1)",
+                      border: "1px solid rgba(251,191,36,0.3)",
+                      borderRadius: "10px",
+                      padding: "10px",
+                      fontSize: "13px",
+                      fontWeight: "600",
+                      color: "#fbbf24",
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: "6px",
+                    }}
+                  >
+                    <Pause style={{ width: "14px", height: "14px" }} />
+                    Pause
+                  </motion.button>
+                )}
+
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={cancelTransfer}
+                  style={{
+                    flex: 1,
+                    background: "rgba(255,59,59,0.1)",
+                    border: "1px solid rgba(255,59,59,0.2)",
+                    borderRadius: "10px",
+                    padding: "10px",
+                    fontSize: "13px",
+                    fontWeight: "600",
+                    color: "#ff6b6b",
+                    cursor: "pointer",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: "6px",
+                  }}
+                >
+                  <X style={{ width: "14px", height: "14px" }} />
+                  Cancel
+                </motion.button>
+              </div>
+            )}
           </motion.div>
         )}
       </AnimatePresence>

@@ -21,8 +21,15 @@ function App() {
     remoteStream,
   } = useFlux((e) => onMessageRef.current?.(e));
 
-  const { progress, sendFile, handleMessage, formatBytes } =
-    useFileTransfer(channel);
+  const {
+    progress,
+    sendFile,
+    handleMessage,
+    formatBytes,
+    pauseTransfer,
+    resumeTransfer,
+    cancelTransfer,
+  } = useFileTransfer(channel);
 
   onMessageRef.current = handleMessage;
 
@@ -63,6 +70,9 @@ function App() {
               progress={progress}
               sendFile={sendFile}
               formatBytes={formatBytes}
+              pauseTransfer={pauseTransfer}
+              resumeTransfer={resumeTransfer}
+              cancelTransfer={cancelTransfer}
             />
             <ScreenShareCard
               startScreenShare={startScreenShare}

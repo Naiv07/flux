@@ -1,18 +1,19 @@
 import { useCallback, useRef, useState } from "react";
 import {
   saveTransfer,
-  getTransfer,
   deleteTransfer,
   generateTransferId,
 } from "../lib/transferStore";
 import type { TransferRecord } from "../lib/transferStore";
 
-const CHUNK_SIZE = 32 * 1024; // 32KB — optimal for internet P2P
+const CHUNK_SIZE = 32 * 1024;
 
 export type TransferStatus =
   | "idle"
   | "sending"
   | "receiving"
+  | "paused"
+  | "cancelled"
   | "complete"
   | "error"
   | "resuming";
@@ -35,43 +36,109 @@ export function useFileTransfer(channel: RTCDataChannel | null) {
     status: "idle",
   });
 
-  const receivingRef = useRef<TransferRecord | null>(null);
+  const receivingRef = useRef<any>(null);
   const transferIdRef = useRef<string>("");
+  const pauseRef = useRef(false);
+  const cancelRef = useRef(false);
 
-  const handleMessage = useCallback((e: MessageEvent) => {
-    if (typeof e.data === "string") {
-      const meta = JSON.parse(e.data);
+  // Pause / resume / cancel controls
+  const pauseTransfer = useCallback(() => {
+    pauseRef.current = true;
+    channel?.send(JSON.stringify({ type: "transfer-paused" }));
+    setProgress((prev) => ({ ...prev, status: "paused" }));
+  }, [channel]);
 
-      if (meta.type === "file-meta") {
-        const id = meta.transferId;
-        transferIdRef.current = id;
+  const resumeTransfer = useCallback(() => {
+    pauseRef.current = false;
+    channel?.send(JSON.stringify({ type: "transfer-resumed" }));
+    setProgress((prev) => ({
+      ...prev,
+      status: prev.transferred > 0 ? "sending" : "sending",
+    }));
+  }, [channel]);
 
-        // Check if we have a partial transfer saved
-        getTransfer(id).then((existing) => {
-          if (existing && existing.received > 0) {
-            // Resume from where we left off
-            receivingRef.current = existing;
-            setProgress({
-              fileName: existing.fileName,
-              fileSize: existing.fileSize,
-              transferred: existing.received,
-              percentage: Math.round(
-                (existing.received / existing.fileSize) * 100
-              ),
-              status: "resuming",
-              resuming: true,
-            });
+  const cancelTransfer = useCallback(() => {
+    cancelRef.current = true;
+    pauseRef.current = false;
+    channel?.send(JSON.stringify({ type: "transfer-cancelled" }));
 
-            // Tell sender to resume from this offset
-            channel?.send(
-              JSON.stringify({
-                type: "resume-from",
-                offset: existing.received,
-                transferId: id,
+    // Clean up receiver state
+    const state = receivingRef.current;
+    if (state?.writable) {
+      state.writable.close().catch(() => {});
+    }
+    receivingRef.current = null;
+
+    setProgress({
+      fileName: "",
+      fileSize: 0,
+      transferred: 0,
+      percentage: 0,
+      status: "cancelled",
+    });
+
+    // Reset to idle after 2 seconds
+    setTimeout(() => {
+      setProgress((prev) =>
+        prev.status === "cancelled"
+          ? { ...prev, status: "idle" }
+          : prev
+      );
+    }, 2000);
+  }, [channel]);
+
+  const handleMessage = useCallback(
+    (e: MessageEvent) => {
+      if (typeof e.data === "string") {
+        const meta = JSON.parse(e.data);
+
+        if (meta.type === "file-meta") {
+          const id = meta.transferId;
+          transferIdRef.current = id;
+
+          const useStreaming = "showSaveFilePicker" in window;
+
+          if (useStreaming) {
+            (window as any)
+              .showSaveFilePicker({ suggestedName: meta.fileName })
+              .then(async (handle: any) => {
+                const writable = await handle.createWritable();
+                receivingRef.current = {
+                  id,
+                  fileName: meta.fileName,
+                  fileSize: meta.fileSize,
+                  fileType: meta.fileType,
+                  chunks: [],
+                  received: 0,
+                  writable,
+                };
+
+                setProgress({
+                  fileName: meta.fileName,
+                  fileSize: meta.fileSize,
+                  transferred: 0,
+                  percentage: 0,
+                  status: "receiving",
+                });
               })
-            );
+              .catch(() => {
+                receivingRef.current = {
+                  id,
+                  fileName: meta.fileName,
+                  fileSize: meta.fileSize,
+                  fileType: meta.fileType,
+                  chunks: [],
+                  received: 0,
+                };
+                setProgress({
+                  fileName: meta.fileName,
+                  fileSize: meta.fileSize,
+                  transferred: 0,
+                  percentage: 0,
+                  status: "receiving",
+                });
+              });
           } else {
-            // Fresh transfer
             receivingRef.current = {
               id,
               fileName: meta.fileName,
@@ -79,10 +146,7 @@ export function useFileTransfer(channel: RTCDataChannel | null) {
               fileType: meta.fileType,
               chunks: [],
               received: 0,
-              totalChunks: Math.ceil(meta.fileSize / CHUNK_SIZE),
-              timestamp: Date.now(),
             };
-
             setProgress({
               fileName: meta.fileName,
               fileSize: meta.fileSize,
@@ -91,74 +155,113 @@ export function useFileTransfer(channel: RTCDataChannel | null) {
               status: "receiving",
             });
           }
-        });
+        }
+
+        if (meta.type === "file-complete") {
+          const state = receivingRef.current;
+          if (!state) return;
+
+          if (state.writable) {
+            state.writable.close().then(() => {
+              console.log("[Flux] File saved:", state.fileName);
+            });
+          } else {
+            const blob = new Blob(state.chunks, { type: state.fileType });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = state.fileName;
+            a.click();
+            URL.revokeObjectURL(url);
+          }
+
+          deleteTransfer(state.id);
+          receivingRef.current = null;
+
+          setProgress((prev) => ({
+            ...prev,
+            status: "complete",
+            percentage: 100,
+          }));
+        }
+
+        if (meta.type === "transfer-paused") {
+          setProgress((prev) => ({ ...prev, status: "paused" }));
+        }
+
+        if (meta.type === "transfer-resumed") {
+          setProgress((prev) => ({
+            ...prev,
+            status: prev.transferred < prev.fileSize ? "receiving" : prev.status,
+          }));
+        }
+
+        if (meta.type === "transfer-cancelled") {
+          const state = receivingRef.current;
+          if (state?.writable) {
+            state.writable.close().catch(() => {});
+          }
+          receivingRef.current = null;
+          setProgress({
+            fileName: "",
+            fileSize: 0,
+            transferred: 0,
+            percentage: 0,
+            status: "cancelled",
+          });
+          setTimeout(() => {
+            setProgress((prev) =>
+              prev.status === "cancelled"
+                ? { ...prev, status: "idle" }
+                : prev
+            );
+          }, 2000);
+        }
+
+        return;
       }
 
-      if (meta.type === "file-complete") {
+      if (e.data instanceof ArrayBuffer) {
         const state = receivingRef.current;
         if (!state) return;
 
-        const blob = new Blob(state.chunks, { type: state.fileType });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = state.fileName;
-        a.click();
-        URL.revokeObjectURL(url);
-
-        // Clean up saved transfer
-        deleteTransfer(state.id);
-        receivingRef.current = null;
-
-        setProgress((prev) => ({
-          ...prev,
-          status: "complete",
-          percentage: 100,
-        }));
+        if (state.writable) {
+          state.writable.write(e.data).then(() => {
+            state.received += e.data.byteLength;
+            setProgress({
+              fileName: state.fileName,
+              fileSize: state.fileSize,
+              transferred: state.received,
+              percentage: Math.round((state.received / state.fileSize) * 100),
+              status: "receiving",
+            });
+          });
+        } else {
+          state.chunks.push(e.data);
+          state.received += e.data.byteLength;
+          setProgress({
+            fileName: state.fileName,
+            fileSize: state.fileSize,
+            transferred: state.received,
+            percentage: Math.round((state.received / state.fileSize) * 100),
+            status: "receiving",
+          });
+        }
       }
-
-      if (meta.type === "resume-from") {
-        // Sender received resume request — will handle in sendFile
-        console.log("[Flux] Receiver wants to resume from:", meta.offset);
-      }
-
-      return;
-    }
-
-    if (e.data instanceof ArrayBuffer) {
-      const state = receivingRef.current;
-      if (!state) return;
-
-      state.chunks.push(e.data);
-      state.received += e.data.byteLength;
-
-      const percentage = Math.round(
-        (state.received / state.fileSize) * 100
-      );
-
-      setProgress({
-        fileName: state.fileName,
-        fileSize: state.fileSize,
-        transferred: state.received,
-        percentage,
-        status: "receiving",
-      });
-
-      // Save progress every 10 chunks
-      if (state.chunks.length % 10 === 0) {
-        saveTransfer(state);
-      }
-    }
-  }, [channel]);
+    },
+    [channel]
+  );
 
   const sendFile = useCallback(
-    async (file: File, resumeOffset = 0) => {
+    async (file: File) => {
       if (!channel || channel.readyState !== "open") return;
+
+      cancelRef.current = false;
+      pauseRef.current = false;
 
       const transferId = generateTransferId(file.name, file.size);
       transferIdRef.current = transferId;
 
-      // Send metadata
       channel.send(
         JSON.stringify({
           type: "file-meta",
@@ -169,31 +272,47 @@ export function useFileTransfer(channel: RTCDataChannel | null) {
         })
       );
 
-      let offset = resumeOffset;
+      let offset = 0;
 
       setProgress({
         fileName: file.name,
         fileSize: file.size,
-        transferred: offset,
-        percentage: Math.round((offset / file.size) * 100),
-        status: offset > 0 ? "resuming" : "sending",
-        resuming: offset > 0,
+        transferred: 0,
+        percentage: 0,
+        status: "sending",
       });
 
-      // Set buffer threshold
-      channel.bufferedAmountLowThreshold = 65536; // 64KB
+      channel.bufferedAmountLowThreshold = 65536;
 
       await new Promise<void>((resolve, reject) => {
         const sendNextChunk = async () => {
           try {
             while (offset < file.size) {
-              // If buffer is too full wait for drain event
+              // Check cancellation
+              if (cancelRef.current) {
+                reject(new Error("cancelled"));
+                return;
+              }
+
+              // Check pause
+              if (pauseRef.current) {
+                const checkPause = setInterval(() => {
+                  if (!pauseRef.current || cancelRef.current) {
+                    clearInterval(checkPause);
+                    if (cancelRef.current) reject(new Error("cancelled"));
+                    else sendNextChunk();
+                  }
+                }, 200);
+                return;
+              }
+
+              // Buffer management
               if (channel.bufferedAmount > channel.bufferedAmountLowThreshold) {
                 channel.onbufferedamountlow = () => {
                   channel.onbufferedamountlow = null;
                   sendNextChunk();
                 };
-                return; // pause and wait
+                return;
               }
 
               if (channel.readyState !== "open") {
@@ -214,24 +333,24 @@ export function useFileTransfer(channel: RTCDataChannel | null) {
                 status: "sending",
               });
             }
-
-            // All chunks sent
             resolve();
           } catch (err) {
             reject(err);
           }
         };
-
         sendNextChunk();
+      }).catch((err) => {
+        console.log("[Flux] Transfer stopped:", err.message);
       });
 
-      channel.send(JSON.stringify({ type: "file-complete" }));
-      setProgress((prev) => ({
-        ...prev,
-        status: "complete",
-        percentage: 100,
-      }));
-      console.log("[Flux] File sent:", file.name);
+      if (!cancelRef.current) {
+        channel.send(JSON.stringify({ type: "file-complete" }));
+        setProgress((prev) => ({
+          ...prev,
+          status: "complete",
+          percentage: 100,
+        }));
+      }
     },
     [channel]
   );
@@ -244,5 +363,13 @@ export function useFileTransfer(channel: RTCDataChannel | null) {
     return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
   };
 
-  return { progress, sendFile, handleMessage, formatBytes };
+  return {
+    progress,
+    sendFile,
+    handleMessage,
+    formatBytes,
+    pauseTransfer,
+    resumeTransfer,
+    cancelTransfer,
+  };
 }
