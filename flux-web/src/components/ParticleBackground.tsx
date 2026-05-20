@@ -42,10 +42,10 @@ function Particles({ connected }: { connected: boolean }) {
         <bufferAttribute attach="attributes-position" args={[positions, 3]} />
       </bufferGeometry>
       <pointsMaterial
-        size={0.08}
-        color={connected ? "#8b83ff" : "#6b7280"}
+        size={0.04}
+        color={connected ? "#89CFF0" : "#4a6fa5"}
         transparent
-        opacity={connected ? 1 : 0.85}
+        opacity={connected ? 0.9 : 0.6}
         sizeAttenuation
       />
     </points>
