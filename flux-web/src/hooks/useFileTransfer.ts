@@ -1,10 +1,8 @@
 import { useCallback, useRef, useState } from "react";
 import {
-  saveTransfer,
   deleteTransfer,
   generateTransferId,
 } from "../lib/transferStore";
-import type { TransferRecord } from "../lib/transferStore";
 
 const CHUNK_SIZE = 32 * 1024;
 
