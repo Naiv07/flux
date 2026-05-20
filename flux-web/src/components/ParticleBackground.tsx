@@ -1,4 +1,5 @@
-import { useRef, useMemo, useState } from "react";
+
+import { useRef, useMemo } from "react";
 import { Canvas, useFrame } from "@react-three/fiber";
 import * as THREE from "three";
 
@@ -52,20 +53,33 @@ function Particles({ connected }: { connected: boolean }) {
 }
 
 export function ParticleBackground({ connected }: { connected: boolean }) {
-  const [hasError, setHasError] = useState(false);
+  // Disable Three.js on mobile — use CSS fallback
+  const isMobile = /Android|iPhone|iPad/i.test(navigator.userAgent);
 
-  // Fallback for devices where WebGL fails
-  if (hasError) {
+  if (isMobile) {
     return (
       <div style={{
         position: "fixed",
-        top: 0, left: 0,
+        top: 0,
+        left: 0,
         width: "100vw",
         height: "100vh",
         zIndex: 0,
-        background: "radial-gradient(ellipse at center, #0d0d1a 0%, #0a0a0f 100%)",
         pointerEvents: "none",
-      }} />
+        background: connected
+          ? "radial-gradient(ellipse at 50% 50%, #1a1040 0%, #0a0a0f 70%)"
+          : "radial-gradient(ellipse at 50% 50%, #0d0d1a 0%, #0a0a0f 70%)",
+        transition: "background 1s ease",
+      }}>
+        {/* CSS animated dots for mobile */}
+        <div style={{
+          position: "absolute",
+          inset: 0,
+          backgroundImage: `radial-gradient(circle, ${connected ? "#89CFF0" : "#4a5568"} 1px, transparent 1px)`,
+          backgroundSize: "40px 40px",
+          opacity: 0.3,
+        }} />
+      </div>
     );
   }
 
@@ -90,7 +104,6 @@ export function ParticleBackground({ connected }: { connected: boolean }) {
         onCreated={({ gl }) => {
           gl.setClearColor(0x000000, 0);
         }}
-        onError={() => setHasError(true)}
         frameloop="always"
       >
         <Particles connected={connected} />
