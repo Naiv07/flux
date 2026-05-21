@@ -120,8 +120,8 @@ function App() {
       flexDirection: "column",
       alignItems: "center",
       justifyContent: "center",
-      padding: "16px",
-      gap: "12px",
+      padding: "24px",
+      gap: "16px",
       position: "relative",
       overflowY: "auto",
     }}>
@@ -131,23 +131,21 @@ function App() {
         position: "relative",
         zIndex: 10,
         width: "100%",
-        maxWidth: "448px",
+        maxWidth: isConnected ? "1200px" : "100%",
         display: "flex",
         flexDirection: "column",
         gap: "16px",
+        transition: "max-width 0.4s ease",
       }}>
-
         <NetworkBanner fileSize={progress.fileSize} />
-        
-        {/* Step 1: Pick mode */}
+
         {!mode && <ModeSelectCard setMode={handleSetMode} />}
 
-        {/* Step 2: Connect */}
-        {mode && (
+        {mode && !isConnected && (
           <ConnectionCard
             connectionState={connectionState}
             roomCode={roomCode}
-            setRoomCode={setRoomCode} 
+            setRoomCode={setRoomCode}
             connect={connect}
             disconnect={handleDisconnect}
             mode={mode}
@@ -155,28 +153,24 @@ function App() {
           />
         )}
 
-        {/* Step 3: Send mode shows transfer + screen share */}
-        {isConnected && mode === "send" && (
-          <>
-            <TransferCard
-              progress={progress}
-              sendFile={sendFile}
-              formatBytes={formatBytes}
-              pauseTransfer={pauseTransfer}
-              resumeTransfer={resumeTransfer}
-              cancelTransfer={cancelTransfer}
+        {/* Connected — show cards side by side on desktop */}
+        {isConnected && mode && (
+          <div style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(380px, 1fr))",
+            gap: "16px",
+            width: "100%",
+          }}>
+            <ConnectionCard
+              connectionState={connectionState}
+              roomCode={roomCode}
+              setRoomCode={setRoomCode}
+              connect={connect}
+              disconnect={handleDisconnect}
+              mode={mode}
+              goBack={handleBack}
             />
-            <ScreenShareCard
-              startScreenShare={startScreenShare}
-              stopScreenShare={stopScreenShare}
-              remoteStream={remoteStream}
-            />
-          </>
-        )}
 
-        {/* Step 4: Receive mode shows progress + screen */}
-        {isConnected && mode === "receive" && (
-          <>
             <TransferCard
               progress={progress}
               sendFile={sendFile}
@@ -185,12 +179,13 @@ function App() {
               resumeTransfer={resumeTransfer}
               cancelTransfer={cancelTransfer}
             />
+
             <ScreenShareCard
               startScreenShare={startScreenShare}
               stopScreenShare={stopScreenShare}
               remoteStream={remoteStream}
             />
-          </>
+          </div>
         )}
       </div>
     </div>
