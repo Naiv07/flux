@@ -1,5 +1,5 @@
 import { generateRoomCode } from "./lib/transferStore";
-import { useRef, useState } from "react";
+import { useRef, useState, useEffect } from "react";
 import { useFlux } from "./hooks/useFlux";
 import { useFileTransfer } from "./hooks/useFileTransfer";
 import { ParticleBackground } from "./components/ParticleBackground";
@@ -22,7 +22,7 @@ function App() {
     }
   };
 
-  const {
+    const {
     connectionState,
     roomCode,
     setRoomCode,
@@ -47,7 +47,59 @@ function App() {
   onMessageRef.current = handleMessage;
 
   const isConnected = connectionState === "connected";
+// Handle mobile back gesture
+  useEffect(() => {
+    // Push initial state
+    window.history.pushState({ screen: "home" }, "");
 
+    const handlePopState = (e: PopStateEvent) => {
+      if (isConnected) {
+        // If connected, back disconnects
+        disconnect();
+        setMode(null);
+        window.history.pushState({ screen: "home" }, "");
+      } else if (mode) {
+        // If on connection screen, back goes to mode select
+        setMode(null);
+        setRoomCode("");
+        window.history.pushState({ screen: "home" }, "");
+      }
+      // If on home — let browser handle (closes PWA)
+    };
+
+    window.addEventListener("popstate", handlePopState);
+
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+    };
+  }, [mode, isConnected, disconnect, setRoomCode]);
+
+  // Push history state when entering a screen
+  useEffect(() => {
+    if (mode) {
+      window.history.pushState({ screen: "connection" }, "");
+    }
+  }, [mode]);
+
+  useEffect(() => {
+    if (isConnected) {
+      window.history.pushState({ screen: "connected" }, "");
+    }
+  }, [isConnected]);
+
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (progress.status === "sending" || progress.status === "receiving") {
+        e.preventDefault();
+        e.returnValue = "Transfer in progress. Are you sure you want to leave?";
+      }
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [progress.status]);
+
+  
   // Wrap disconnect to also reset mode
   const handleDisconnect = () => {
     disconnect();
@@ -59,7 +111,7 @@ function App() {
     setRoomCode("");
     disconnect();
   };
-  
+
   return (
     <div style={{
       minHeight: "100vh",
