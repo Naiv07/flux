@@ -43,6 +43,9 @@ function App() {
     setMode(null);
   };
 
+  const handleBack = () => {
+    setMode(null);
+  };
   return (
     <div style={{
       minHeight: "100vh",
@@ -78,6 +81,7 @@ function App() {
             connect={connect}
             disconnect={handleDisconnect}
             mode={mode}
+            goBack={handleBack}
           />
         )}
 

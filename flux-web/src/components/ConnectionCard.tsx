@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
-import { WifiHigh, WifiSlash, Spinner } from "@phosphor-icons/react";
+import { WifiHigh, WifiSlash, Spinner, ArrowLeft } from "@phosphor-icons/react";
 import type { ConnectionState } from "../types";
+
 
 interface Props {
   connectionState: ConnectionState;
@@ -17,6 +18,7 @@ interface Props {
   connect: (code: string) => void;
   disconnect: () => void;
   mode: "send" | "receive";
+  goBack: () => void;
 }
 
 export function ConnectionCard({
@@ -26,6 +28,7 @@ export function ConnectionCard({
   connect,
   disconnect,
   mode,
+  goBack,
 }: Props) {
   const isConnected = connectionState === "connected";
   const isConnecting = connectionState === "connecting";
@@ -51,21 +54,43 @@ export function ConnectionCard({
       }}
     >
       {/* Header */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-        <div>
-          <h1 style={{
-            fontSize: "28px",
-            fontWeight: "700",
-            background: "linear-gradient(135deg, #6c63ff, #00d4ff)",
-            WebkitBackgroundClip: "text",
-            WebkitTextFillColor: "transparent",
-            backgroundClip: "text",
-          }}>
-            Flux
-          </h1>
-          <p style={{ fontSize: "13px", color: "#6b7280", marginTop: "4px" }}>
-            No cloud. Just connection.
-          </p>
+      {/* Header with back button */}
+<div style={{ display: "flex", alignItems: "flex-start", gap: "12px" }}>
+  {!isConnected && (
+    <motion.button
+      whileHover={{ scale: 1.05 }}
+      whileTap={{ scale: 0.95 }}
+      onClick={goBack}
+      style={{
+        background: "rgba(255,255,255,0.05)",
+        border: "1px solid rgba(255,255,255,0.08)",
+        borderRadius: "10px",
+        padding: "8px",
+        cursor: "pointer",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        flexShrink: 0,
+      }}
+    >
+      <ArrowLeft size={18} weight="bold" color="#6b7280" />
+    </motion.button>
+  )}
+
+  <div style={{ flex: 1 }}>
+    <h1 style={{
+      fontSize: "28px",
+      fontWeight: "700",
+      background: "linear-gradient(135deg, #6c63ff, #00d4ff)",
+      WebkitBackgroundClip: "text",
+      WebkitTextFillColor: "transparent",
+      backgroundClip: "text",
+    }}>
+      Flux
+    </h1>
+    <p style={{ fontSize: "13px", color: "#6b7280", marginTop: "4px" }}>
+      No cloud. Just connection.
+    </p>
           <div style={{
             display: "inline-flex",
             alignItems: "center",
@@ -90,6 +115,7 @@ export function ConnectionCard({
         <motion.div
           animate={{ scale: isConnected ? [1, 1.1, 1] : 1 }}
           transition={{ repeat: isConnected ? Infinity : 0, duration: 2 }}
+          style={{ flexShrink: 0 }}
         >
           {isConnected ? (
             <WifiHigh size={22} weight="bold" color="#00ff88" />
