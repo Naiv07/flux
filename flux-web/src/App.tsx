@@ -1,3 +1,4 @@
+import { generateRoomCode } from "./lib/transferStore";
 import { useRef, useState } from "react";
 import { useFlux } from "./hooks/useFlux";
 import { useFileTransfer } from "./hooks/useFileTransfer";
@@ -10,6 +11,16 @@ import { ModeSelectCard } from "./components/ModeSelectCard";
 function App() {
   const [mode, setMode] = useState<"send" | "receive" | null>(null);
   const onMessageRef = useRef<((e: MessageEvent) => void) | null>(null);
+
+  const handleSetMode = (selectedMode: "send" | "receive") => {
+    setMode(selectedMode);
+    if (selectedMode === "send") {
+      const code = generateRoomCode();
+      setRoomCode(code);
+      // Auto-connect immediately
+      setTimeout(() => connect(code), 100);
+    }
+  };
 
   const {
     connectionState,
@@ -45,7 +56,10 @@ function App() {
 
   const handleBack = () => {
     setMode(null);
+    setRoomCode("");
+    disconnect();
   };
+  
   return (
     <div style={{
       minHeight: "100vh",
@@ -70,14 +84,14 @@ function App() {
         gap: "16px",
       }}>
         {/* Step 1: Pick mode */}
-        {!mode && <ModeSelectCard setMode={setMode} />}
+        {!mode && <ModeSelectCard setMode={handleSetMode} />}
 
         {/* Step 2: Connect */}
         {mode && (
           <ConnectionCard
             connectionState={connectionState}
             roomCode={roomCode}
-            setRoomCode={setRoomCode}
+            setRoomCode={setRoomCode} 
             connect={connect}
             disconnect={handleDisconnect}
             mode={mode}

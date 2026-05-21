@@ -158,43 +158,96 @@ export function ConnectionCard({
           animate={{ opacity: 1 }}
           style={{ display: "flex", flexDirection: "column", gap: "12px" }}
         >
-          <input
-            type="text"
-            placeholder="Enter room code e.g. flux123"
-            value={roomCode}
-            onChange={(e) => setRoomCode(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && connect(roomCode)}
-            style={{
-              background: "rgba(255,255,255,0.05)",
-              border: "1px solid rgba(255,255,255,0.1)",
-              borderRadius: "12px",
-              padding: "12px 16px",
-              fontSize: "14px",
-              color: "#e8e8f0",
-              outline: "none",
-              width: "100%",
-            }}
-          />
-          <motion.button
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={() => connect(roomCode)}
-            disabled={!roomCode || isConnecting}
-            style={{
-              background: "linear-gradient(135deg, #6c63ff, #00d4ff)",
-              border: "none",
-              borderRadius: "12px",
-              padding: "12px",
-              fontSize: "14px",
-              fontWeight: "600",
-              color: "white",
-              cursor: "pointer",
-              width: "100%",
-              opacity: !roomCode || isConnecting ? 0.4 : 1,
-            }}
-          >
-            {isConnecting ? "Connecting..." : "Connect"}
-          </motion.button>
+          {mode === "send" ? (
+            <>
+              <div style={{ textAlign: "center" }}>
+                <p style={{ fontSize: "12px", color: "#6b7280", marginBottom: "12px" }}>
+                  Share this code with the receiver
+                </p>
+                <div style={{
+                  background: "rgba(108,99,255,0.08)",
+                  border: "1px solid rgba(108,99,255,0.2)",
+                  borderRadius: "16px",
+                  padding: "20px",
+                  fontSize: "32px",
+                  fontWeight: "700",
+                  letterSpacing: "8px",
+                  color: "#6c63ff",
+                  fontFamily: "monospace",
+                  textAlign: "center",
+                }}>
+                  {roomCode}
+                </div>
+
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => {
+                    navigator.clipboard.writeText(roomCode);
+                  }}
+                  style={{
+                    marginTop: "12px",
+                    background: "rgba(255,255,255,0.05)",
+                    border: "1px solid rgba(255,255,255,0.1)",
+                    borderRadius: "10px",
+                    padding: "8px 16px",
+                    fontSize: "12px",
+                    fontWeight: "600",
+                    color: "#e8e8f0",
+                    cursor: "pointer",
+                  }}
+                >
+                  Copy Code
+                </motion.button>
+              </div>
+            </>
+          ) : (
+            <>
+              <input
+                type="text"
+                placeholder="Enter 6-character code"
+                value={roomCode}
+                onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
+                onKeyDown={(e) => e.key === "Enter" && connect(roomCode)}
+                maxLength={6}
+                style={{
+                  background: "rgba(255,255,255,0.05)",
+                  border: "1px solid rgba(255,255,255,0.1)",
+                  borderRadius: "12px",
+                  padding: "16px",
+                  fontSize: "20px",
+                  fontWeight: "600",
+                  letterSpacing: "6px",
+                  color: "#e8e8f0",
+                  outline: "none",
+                  width: "100%",
+                  textAlign: "center",
+                  fontFamily: "monospace",
+                  textTransform: "uppercase",
+                }}
+              />
+              <motion.button
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => connect(roomCode)}
+                disabled={roomCode.length !== 6 || isConnecting}
+                style={{
+                  background: "linear-gradient(135deg, #6c63ff, #00d4ff)",
+                  border: "none",
+                  borderRadius: "12px",
+                  padding: "12px",
+                  fontSize: "14px",
+                  fontWeight: "600",
+                  color: "white",
+                  cursor: "pointer",
+                  width: "100%",
+                  opacity: roomCode.length !== 6 || isConnecting ? 0.4 : 1,
+                }}
+              >
+                {isConnecting ? "Connecting..." : "Connect"}
+              </motion.button>
+            </>
+          )}
         </motion.div>
       )}
 

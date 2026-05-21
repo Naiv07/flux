@@ -86,3 +86,13 @@ export function generateTransferId(
 ): string {
   return `${fileName}-${fileSize}-${Date.now()}`;
 }
+
+// Generate random 6-character alphanumeric room code
+export function generateRoomCode(): string {
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"; // no confusing chars (no 0, O, 1, I)
+  let code = "";
+  for (let i = 0; i < 6; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return code;
+}
