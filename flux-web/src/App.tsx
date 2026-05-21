@@ -1,3 +1,4 @@
+import { NetworkBanner } from "./components/NetworkBanner";
 import { generateRoomCode } from "./lib/transferStore";
 import { useRef, useState, useEffect } from "react";
 import { useFlux } from "./hooks/useFlux";
@@ -135,6 +136,9 @@ function App() {
         flexDirection: "column",
         gap: "16px",
       }}>
+
+        <NetworkBanner fileSize={progress.fileSize} />
+        
         {/* Step 1: Pick mode */}
         {!mode && <ModeSelectCard setMode={handleSetMode} />}
 
