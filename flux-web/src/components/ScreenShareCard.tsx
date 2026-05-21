@@ -53,7 +53,7 @@ export function ScreenShareCard({
         borderRadius: "24px",
         padding: "32px",
         width: "100%",
-        maxWidth: "448px",
+        maxWidth: "100%",
         display: "flex",
         flexDirection: "column",
         gap: "20px",
