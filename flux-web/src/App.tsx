@@ -131,7 +131,7 @@ function App() {
         position: "relative",
         zIndex: 10,
         width: "100%",
-        maxWidth: "100%",
+        maxWidth: isConnected ? "1200px" : "100%",
         display: "flex",
         flexDirection: "column",
         gap: "16px",
