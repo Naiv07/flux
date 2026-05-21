@@ -1,6 +1,6 @@
 import { useRef, useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Monitor, MonitorOff } from "lucide-react";
+import { Monitor, MonitorPlay } from "@phosphor-icons/react";
 
 interface Props {
   startScreenShare: () => Promise<MediaStream | null>;
@@ -155,12 +155,12 @@ export function ScreenShareCard({
       >
         {isSharing ? (
           <>
-            <MonitorOff style={{ width: "16px", height: "16px" }} />
+            <MonitorPlay size={16} weight="bold" />
             Stop Sharing
           </>
         ) : (
           <>
-            <Monitor style={{ width: "16px", height: "16px" }} />
+            <Monitor size={16} weight="bold" />
             Share Screen
           </>
         )}

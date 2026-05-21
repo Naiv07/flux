@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Wifi, WifiOff, Loader } from "lucide-react";
+import { WifiHigh, WifiSlash, Spinner } from "@phosphor-icons/react";
 import type { ConnectionState } from "../types";
 
 interface Props {
@@ -70,16 +70,16 @@ export function ConnectionCard({
           transition={{ repeat: isConnected ? Infinity : 0, duration: 2 }}
         >
           {isConnected ? (
-            <Wifi style={{ color: "#00ff88", width: "22px", height: "22px" }} />
+            <WifiHigh size={22} weight="bold" color="#00ff88" />
           ) : isConnecting ? (
             <motion.div
               animate={{ rotate: 360 }}
               transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
             >
-              <Loader style={{ color: "#6c63ff", width: "22px", height: "22px" }} />
+              <Spinner size={22} weight="bold" color="#6c63ff" />
             </motion.div>
           ) : (
-            <WifiOff style={{ color: "#374151", width: "22px", height: "22px" }} />
+            <WifiSlash size={22} weight="bold" color="#374151" />
           )}
         </motion.div>
       </div>

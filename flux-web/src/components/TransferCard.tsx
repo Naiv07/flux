@@ -1,6 +1,13 @@
 import { useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Upload, Download, CheckCircle, Pause, Play, X } from "lucide-react";
+import {
+  ArrowUp,
+  ArrowDown,
+  CheckCircle,
+  Pause,
+  Play,
+  X,
+} from "@phosphor-icons/react";
 import type { TransferProgress } from "../hooks/useFileTransfer";
 
 interface Props {
@@ -101,7 +108,7 @@ export function TransferCard({
           animate={{ y: isActive ? 0 : [0, -4, 0] }}
           transition={{ repeat: isActive ? 0 : Infinity, duration: 2 }}
         >
-          <Upload style={{ width: "32px", height: "32px", color: "#6b7280" }} />
+          <ArrowUp size={32} weight="bold" color="#6b7280" />
         </motion.div>
         <p style={{ fontSize: "14px", color: "#6b7280" }}>
           Click to select a file to send
@@ -132,13 +139,13 @@ export function TransferCard({
                 flexShrink: 0,
               }}>
                 {isComplete ? (
-                  <CheckCircle style={{ width: "16px", height: "16px", color: "#00ff88" }} />
+                  <CheckCircle size={16} weight="bold" color="#00ff88" />
                 ) : isCancelled ? (
-                  <X style={{ width: "16px", height: "16px", color: "#ff6b6b" }} />
+                  <X size={16} weight="bold" color="#ff6b6b" />
                 ) : isSending ? (
-                  <Upload style={{ width: "16px", height: "16px", color: "#6c63ff" }} />
+                  <ArrowUp size={16} weight="bold" color="#6c63ff" />
                 ) : (
-                  <Download style={{ width: "16px", height: "16px", color: "#89CFF0" }} />
+                  <ArrowDown size={16} weight="bold" color="#89CFF0" />
                 )}
               </div>
 
@@ -232,7 +239,7 @@ export function TransferCard({
                       gap: "6px",
                     }}
                   >
-                    <Play style={{ width: "14px", height: "14px" }} />
+                    <Play size={14} weight="bold" />
                     Resume
                   </motion.button>
                 ) : (
@@ -256,7 +263,7 @@ export function TransferCard({
                       gap: "6px",
                     }}
                   >
-                    <Pause style={{ width: "14px", height: "14px" }} />
+                    <Pause size={14} weight="bold" />
                     Pause
                   </motion.button>
                 )}
@@ -281,7 +288,7 @@ export function TransferCard({
                     gap: "6px",
                   }}
                 >
-                  <X style={{ width: "14px", height: "14px" }} />
+                  <X size={14} weight="bold" />
                   Cancel
                 </motion.button>
               </div>
