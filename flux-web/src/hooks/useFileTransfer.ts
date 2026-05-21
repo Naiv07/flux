@@ -4,7 +4,7 @@ import {
   generateTransferId,
 } from "../lib/transferStore";
 
-const CHUNK_SIZE = 32 * 1024;
+const CHUNK_SIZE = 256 * 1024; // 256KB chunks
 
 export type TransferStatus =
   | "idle"
@@ -38,11 +38,19 @@ export function useFileTransfer(channel: RTCDataChannel | null) {
   const transferIdRef = useRef<string>("");
   const pauseRef = useRef(false);
   const cancelRef = useRef(false);
-  const throttleDelayRef = useRef(0);          // sender delay between chunks
-  const lastSpeedCheckRef = useRef(Date.now()); // receiver speed tracker
+  const throttleDelayRef = useRef(0);
+  const lastSpeedCheckRef = useRef(Date.now());
   const bytesAtLastCheckRef = useRef(0);
+  const lastProgressUpdateRef = useRef(0);
 
-  // Pause / resume / cancel controls
+  const updateProgressThrottled = useCallback((newProgress: TransferProgress) => {
+    const now = Date.now();
+    if (now - lastProgressUpdateRef.current > 100) {
+      setProgress(newProgress);
+      lastProgressUpdateRef.current = now;
+    }
+  }, []);
+
   const pauseTransfer = useCallback(() => {
     pauseRef.current = true;
     channel?.send(JSON.stringify({ type: "transfer-paused" }));
@@ -52,10 +60,7 @@ export function useFileTransfer(channel: RTCDataChannel | null) {
   const resumeTransfer = useCallback(() => {
     pauseRef.current = false;
     channel?.send(JSON.stringify({ type: "transfer-resumed" }));
-    setProgress((prev) => ({
-      ...prev,
-      status: prev.transferred > 0 ? "sending" : "sending",
-    }));
+    setProgress((prev) => ({ ...prev, status: "sending" }));
   }, [channel]);
 
   const cancelTransfer = useCallback(() => {
@@ -63,7 +68,6 @@ export function useFileTransfer(channel: RTCDataChannel | null) {
     pauseRef.current = false;
     channel?.send(JSON.stringify({ type: "transfer-cancelled" }));
 
-    // Clean up receiver state
     const state = receivingRef.current;
     if (state?.writable) {
       state.writable.close().catch(() => {});
@@ -78,12 +82,9 @@ export function useFileTransfer(channel: RTCDataChannel | null) {
       status: "cancelled",
     });
 
-    // Reset to idle after 2 seconds
     setTimeout(() => {
       setProgress((prev) =>
-        prev.status === "cancelled"
-          ? { ...prev, status: "idle" }
-          : prev
+        prev.status === "cancelled" ? { ...prev, status: "idle" } : prev
       );
     }, 2000);
   }, [channel]);
@@ -113,7 +114,6 @@ export function useFileTransfer(channel: RTCDataChannel | null) {
                   received: 0,
                   writable,
                 };
-
                 setProgress({
                   fileName: meta.fileName,
                   fileSize: meta.fileSize,
@@ -187,12 +187,12 @@ export function useFileTransfer(channel: RTCDataChannel | null) {
         }
 
         if (meta.type === "transfer-paused") {
-          pauseRef.current = true;  // ← actually pause the sender too
+          pauseRef.current = true;
           setProgress((prev) => ({ ...prev, status: "paused" }));
         }
 
         if (meta.type === "transfer-resumed") {
-          pauseRef.current = false;  // ← resume sender too
+          pauseRef.current = false;
           setProgress((prev) => ({
             ...prev,
             status: prev.transferred < prev.fileSize ? "sending" : prev.status,
@@ -214,9 +214,7 @@ export function useFileTransfer(channel: RTCDataChannel | null) {
           });
           setTimeout(() => {
             setProgress((prev) =>
-              prev.status === "cancelled"
-                ? { ...prev, status: "idle" }
-                : prev
+              prev.status === "cancelled" ? { ...prev, status: "idle" } : prev
             );
           }, 2000);
         }
@@ -230,7 +228,6 @@ export function useFileTransfer(channel: RTCDataChannel | null) {
 
         return;
       }
-      
 
       if (e.data instanceof ArrayBuffer) {
         const state = receivingRef.current;
@@ -238,7 +235,7 @@ export function useFileTransfer(channel: RTCDataChannel | null) {
 
         const updateProgress = () => {
           state.received += e.data.byteLength;
-          setProgress({
+          updateProgressThrottled({
             fileName: state.fileName,
             fileSize: state.fileSize,
             transferred: state.received,
@@ -246,7 +243,6 @@ export function useFileTransfer(channel: RTCDataChannel | null) {
             status: "receiving",
           });
 
-          // Measure incoming speed every 2 seconds
           const now = Date.now();
           const elapsed = now - lastSpeedCheckRef.current;
 
@@ -255,16 +251,12 @@ export function useFileTransfer(channel: RTCDataChannel | null) {
             const bytesPerSecond = (bytesReceived / elapsed) * 1000;
             const mbps = (bytesPerSecond * 8) / 1_000_000;
 
-            // Calculate optimal chunk delay
-            // Target: stay under receiver's actual speed
             let suggestedDelay = 0;
-            if (mbps < 5)        suggestedDelay = 20;  // very slow connection
-            else if (mbps < 10)  suggestedDelay = 10;  // slow
-            else if (mbps < 25)  suggestedDelay = 5;   // medium
-            else if (mbps < 50)  suggestedDelay = 2;   // fast
-            else                 suggestedDelay = 0;   // very fast
+            if (mbps < 3) suggestedDelay = 30;
+            else if (mbps < 8) suggestedDelay = 15;
+            else if (mbps < 20) suggestedDelay = 5;
+            else suggestedDelay = 0;
 
-            // Tell sender to adjust
             channel?.send(
               JSON.stringify({
                 type: "bandwidth-adjust",
@@ -286,7 +278,7 @@ export function useFileTransfer(channel: RTCDataChannel | null) {
         }
       }
     },
-    [channel]
+    [channel, updateProgressThrottled]
   );
 
   const sendFile = useCallback(
@@ -295,9 +287,10 @@ export function useFileTransfer(channel: RTCDataChannel | null) {
 
       cancelRef.current = false;
       pauseRef.current = false;
-      throttleDelayRef.current = 0;          // reset
-      lastSpeedCheckRef.current = Date.now(); // reset
-      bytesAtLastCheckRef.current = 0;        // reset
+      throttleDelayRef.current = 0;
+      lastSpeedCheckRef.current = Date.now();
+      bytesAtLastCheckRef.current = 0;
+      lastProgressUpdateRef.current = 0;
 
       const transferId = generateTransferId(file.name, file.size);
       transferIdRef.current = transferId;
@@ -322,19 +315,17 @@ export function useFileTransfer(channel: RTCDataChannel | null) {
         status: "sending",
       });
 
-      channel.bufferedAmountLowThreshold = 65536;
+      channel.bufferedAmountLowThreshold = 1024 * 1024;
 
       await new Promise<void>((resolve, reject) => {
         const sendNextChunk = async () => {
           try {
             while (offset < file.size) {
-              // Check cancellation
               if (cancelRef.current) {
                 reject(new Error("cancelled"));
                 return;
               }
 
-              // Check pause
               if (pauseRef.current) {
                 const checkPause = setInterval(() => {
                   if (!pauseRef.current || cancelRef.current) {
@@ -346,7 +337,6 @@ export function useFileTransfer(channel: RTCDataChannel | null) {
                 return;
               }
 
-              // Buffer management
               if (channel.bufferedAmount > channel.bufferedAmountLowThreshold) {
                 channel.onbufferedamountlow = () => {
                   channel.onbufferedamountlow = null;
@@ -360,19 +350,28 @@ export function useFileTransfer(channel: RTCDataChannel | null) {
                 return;
               }
 
-              const chunk = file.slice(offset, offset + CHUNK_SIZE);
-              const buffer = await chunk.arrayBuffer();
-              channel.send(buffer);
-              offset += buffer.byteLength;
+              // Batch — send 4 chunks at a time
+              const chunksToSend = Math.min(
+                4,
+                Math.ceil((file.size - offset) / CHUNK_SIZE)
+              );
 
-              // Apply adaptive throttle
-              if (throttleDelayRef.current > 0) {
-                await new Promise((r) =>
-                  setTimeout(r, throttleDelayRef.current)
-                );
+              for (let i = 0; i < chunksToSend; i++) {
+                if (cancelRef.current || pauseRef.current) break;
+
+                const chunk = file.slice(offset, offset + CHUNK_SIZE);
+                const buffer = await chunk.arrayBuffer();
+                channel.send(buffer);
+                offset += buffer.byteLength;
+
+                if (throttleDelayRef.current > 0) {
+                  await new Promise((r) =>
+                    setTimeout(r, throttleDelayRef.current)
+                  );
+                }
               }
 
-              setProgress({
+              updateProgressThrottled({
                 fileName: file.name,
                 fileSize: file.size,
                 transferred: offset,
@@ -399,7 +398,7 @@ export function useFileTransfer(channel: RTCDataChannel | null) {
         }));
       }
     },
-    [channel]
+    [channel, updateProgressThrottled]
   );
 
   const formatBytes = (bytes: number): string => {
