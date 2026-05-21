@@ -52,7 +52,7 @@ function App() {
     // Push initial state
     window.history.pushState({ screen: "home" }, "");
 
-    const handlePopState = (e: PopStateEvent) => {
+    const handlePopState = () => {
       if (isConnected) {
         // If connected, back disconnects
         disconnect();
@@ -99,7 +99,7 @@ function App() {
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [progress.status]);
 
-  
+
   // Wrap disconnect to also reset mode
   const handleDisconnect = () => {
     disconnect();
