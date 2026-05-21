@@ -15,6 +15,8 @@ interface Props {
   roomCode: string;
   setRoomCode: (code: string) => void;
   connect: (code: string) => void;
+  disconnect: () => void;
+  mode: "send" | "receive";
 }
 
 export function ConnectionCard({
@@ -23,6 +25,7 @@ export function ConnectionCard({
   setRoomCode,
   connect,
   disconnect,
+  mode,
 }: Props) {
   const isConnected = connectionState === "connected";
   const isConnecting = connectionState === "connecting";
@@ -63,6 +66,25 @@ export function ConnectionCard({
           <p style={{ fontSize: "13px", color: "#6b7280", marginTop: "4px" }}>
             No cloud. Just connection.
           </p>
+          <div style={{
+            display: "inline-flex",
+            alignItems: "center",
+            gap: "6px",
+            marginTop: "12px",
+            padding: "4px 10px",
+            background: mode === "send"
+              ? "rgba(108,99,255,0.15)"
+              : "rgba(137,207,240,0.15)",
+            border: `1px solid ${mode === "send" ? "rgba(108,99,255,0.3)" : "rgba(137,207,240,0.3)"}`,
+            borderRadius: "999px",
+            fontSize: "11px",
+            fontWeight: "600",
+            color: mode === "send" ? "#6c63ff" : "#89CFF0",
+            textTransform: "uppercase",
+            letterSpacing: "1px",
+          }}>
+            {mode === "send" ? "Sending" : "Receiving"}
+          </div>
         </div>
 
         <motion.div
