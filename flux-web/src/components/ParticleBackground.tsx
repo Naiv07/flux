@@ -131,180 +131,211 @@ export function ParticleBackground({ connected }: { connected: boolean }) {
         zIndex: 0,
         pointerEvents: "none",
         overflow: "hidden",
-        background: "#07071a",
+        background: "linear-gradient(160deg, #0a0a2e 0%, #080820 40%, #0d0a1a 100%)",
       }}>
         <style>{`
           @keyframes nebulaFloat1 {
-            0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.5; }
-            50% { transform: translate(5%, 8%) scale(1.15); opacity: 0.7; }
+            0%,100% { transform: translate(0,0) scale(1); }
+            50% { transform: translate(4%,6%) scale(1.12); }
           }
           @keyframes nebulaFloat2 {
-            0%, 100% { transform: translate(0, 0) scale(1.1); opacity: 0.4; }
-            50% { transform: translate(-8%, -5%) scale(0.95); opacity: 0.6; }
+            0%,100% { transform: translate(0,0) scale(1.05); }
+            50% { transform: translate(-6%,-4%) scale(0.92); }
           }
           @keyframes nebulaFloat3 {
-            0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.3; }
-            50% { transform: translate(6%, -8%) scale(1.2); opacity: 0.5; }
+            0%,100% { transform: translate(0,0) scale(1); }
+            50% { transform: translate(5%,-6%) scale(1.18); }
           }
-          @keyframes twinkleA {
-            0%, 100% { opacity: 0.2; transform: scale(0.8); }
-            50% { opacity: 1; transform: scale(1.2); }
+          @keyframes nebulaFloat4 {
+            0%,100% { transform: translate(0,0) scale(0.95); }
+            50% { transform: translate(-4%,5%) scale(1.1); }
           }
-          @keyframes twinkleB {
-            0%, 100% { opacity: 0.6; transform: scale(1); }
-            50% { opacity: 0.1; transform: scale(0.7); }
+          @keyframes twinkle1 {
+            0%,100% { opacity:0.2; transform:scale(0.8); }
+            50% { opacity:1; transform:scale(1.3); }
           }
-          @keyframes twinkleC {
-            0%, 33% { opacity: 0.8; }
-            66% { opacity: 0.1; }
-            100% { opacity: 0.8; }
+          @keyframes twinkle2 {
+            0%,100% { opacity:0.7; transform:scale(1); }
+            40% { opacity:0.1; transform:scale(0.6); }
           }
-          @keyframes starFlare {
-            0%, 100% { opacity: 0.6; transform: scale(1) rotate(0deg); }
-            50% { opacity: 1; transform: scale(1.4) rotate(45deg); }
+          @keyframes twinkle3 {
+            0%,33% { opacity:0.9; }
+            55% { opacity:0.1; }
+            100% { opacity:0.9; }
           }
-
-          .flux-nebula {
-            position: absolute;
-            border-radius: 50%;
-            filter: blur(70px);
+          @keyframes flare {
+            0%,100% { opacity:0.5; transform:scale(1) rotate(0deg); }
+            50% { opacity:1; transform:scale(1.5) rotate(45deg); }
           }
-          .flux-nebula-1 {
-            width: 70vw; height: 70vw;
-            top: -10%; left: -15%;
-            background: radial-gradient(circle, ${connected ? "#5b3d9e" : "#3d2870"} 0%, transparent 70%);
-            animation: nebulaFloat1 20s ease-in-out infinite;
-          }
-          .flux-nebula-2 {
-            width: 60vw; height: 60vw;
-            bottom: 0%; right: -10%;
-            background: radial-gradient(circle, ${connected ? "#1a4a8a" : "#102a5a"} 0%, transparent 70%);
-            animation: nebulaFloat2 25s ease-in-out infinite;
-          }
-          .flux-nebula-3 {
-            width: 50vw; height: 50vw;
-            top: 35%; left: 25%;
-            background: radial-gradient(circle, ${connected ? "#2d1b6e" : "#1a0f45"} 0%, transparent 70%);
-            animation: nebulaFloat3 18s ease-in-out infinite;
+          @keyframes flare2 {
+            0%,100% { opacity:0.4; transform:scale(0.9) rotate(0deg); }
+            50% { opacity:0.9; transform:scale(1.3) rotate(-45deg); }
           }
 
-          /* Small star field */
-          .flux-stars-sm {
-            position: absolute;
-            inset: 0;
+          .cn { position:absolute; border-radius:50%; filter:blur(65px); }
+
+          /* Purple nebula — top left */
+          .cn1 {
+            width:75vw; height:75vw;
+            top:-15%; left:-20%;
+            background: radial-gradient(circle,
+              ${connected ? "rgba(120,60,200,0.7)" : "rgba(80,30,150,0.5)"} 0%,
+              rgba(60,20,120,0.2) 50%,
+              transparent 70%);
+            animation: nebulaFloat1 22s ease-in-out infinite;
+          }
+          /* Pink/magenta nebula — top right */
+          .cn2 {
+            width:55vw; height:55vw;
+            top:5%; right:-15%;
+            background: radial-gradient(circle,
+              ${connected ? "rgba(180,40,120,0.4)" : "rgba(120,20,80,0.3)"} 0%,
+              rgba(100,20,80,0.1) 50%,
+              transparent 70%);
+            animation: nebulaFloat2 18s ease-in-out infinite;
+          }
+          /* Deep blue nebula — bottom right */
+          .cn3 {
+            width:65vw; height:65vw;
+            bottom:-10%; right:-15%;
+            background: radial-gradient(circle,
+              ${connected ? "rgba(20,80,180,0.6)" : "rgba(15,50,130,0.4)"} 0%,
+              rgba(10,30,100,0.2) 50%,
+              transparent 70%);
+            animation: nebulaFloat3 26s ease-in-out infinite;
+          }
+          /* Purple accent — center */
+          .cn4 {
+            width:50vw; height:50vw;
+            top:35%; left:20%;
+            background: radial-gradient(circle,
+              ${connected ? "rgba(90,40,180,0.35)" : "rgba(60,20,130,0.2)"} 0%,
+              transparent 70%);
+            animation: nebulaFloat4 20s ease-in-out infinite;
+          }
+
+          /* Tiny star dust */
+          .cs1 {
+            position:absolute; inset:0;
             background-image:
-              radial-gradient(1px 1px at 8% 15%, rgba(255,255,255,0.8), transparent),
-              radial-gradient(1px 1px at 22% 45%, rgba(137,207,240,0.6), transparent),
-              radial-gradient(1px 1px at 38% 22%, rgba(255,255,255,0.7), transparent),
-              radial-gradient(1px 1px at 55% 68%, rgba(180,160,255,0.6), transparent),
-              radial-gradient(1px 1px at 72% 35%, rgba(255,255,255,0.8), transparent),
-              radial-gradient(1px 1px at 85% 80%, rgba(137,207,240,0.5), transparent),
-              radial-gradient(1px 1px at 15% 75%, rgba(255,255,255,0.6), transparent),
-              radial-gradient(1px 1px at 48% 90%, rgba(180,160,255,0.7), transparent),
-              radial-gradient(1px 1px at 92% 20%, rgba(255,255,255,0.8), transparent),
-              radial-gradient(1px 1px at 65% 12%, rgba(137,207,240,0.6), transparent),
-              radial-gradient(1px 1px at 30% 58%, rgba(255,255,255,0.5), transparent),
-              radial-gradient(1px 1px at 78% 55%, rgba(180,160,255,0.6), transparent);
-            background-size: 100% 100%;
-            animation: twinkleA 5s ease-in-out infinite;
+              radial-gradient(1px 1px at 7% 12%, rgba(255,255,255,0.7), transparent),
+              radial-gradient(1px 1px at 18% 35%, rgba(180,160,255,0.5), transparent),
+              radial-gradient(1px 1px at 28% 68%, rgba(255,255,255,0.6), transparent),
+              radial-gradient(1px 1px at 42% 20%, rgba(137,207,240,0.6), transparent),
+              radial-gradient(1px 1px at 58% 80%, rgba(255,255,255,0.5), transparent),
+              radial-gradient(1px 1px at 65% 45%, rgba(200,150,255,0.5), transparent),
+              radial-gradient(1px 1px at 75% 15%, rgba(255,255,255,0.7), transparent),
+              radial-gradient(1px 1px at 82% 60%, rgba(137,207,240,0.6), transparent),
+              radial-gradient(1px 1px at 92% 30%, rgba(255,255,255,0.5), transparent),
+              radial-gradient(1px 1px at 12% 82%, rgba(180,160,255,0.6), transparent),
+              radial-gradient(1px 1px at 35% 50%, rgba(255,255,255,0.4), transparent),
+              radial-gradient(1px 1px at 48% 92%, rgba(137,207,240,0.5), transparent),
+              radial-gradient(1px 1px at 88% 88%, rgba(255,200,255,0.4), transparent),
+              radial-gradient(1px 1px at 55% 35%, rgba(255,255,255,0.6), transparent),
+              radial-gradient(1px 1px at 22% 55%, rgba(180,160,255,0.4), transparent);
+            background-size:100% 100%;
+            animation: twinkle1 6s ease-in-out infinite;
           }
 
           /* Medium stars */
-          .flux-stars-md {
-            position: absolute;
-            inset: 0;
+          .cs2 {
+            position:absolute; inset:0;
             background-image:
-              radial-gradient(1.5px 1.5px at 18% 30%, rgba(137,207,240,0.9), transparent),
-              radial-gradient(1.5px 1.5px at 62% 25%, rgba(255,255,255,0.9), transparent),
-              radial-gradient(1.5px 1.5px at 42% 72%, rgba(180,160,255,0.8), transparent),
-              radial-gradient(1.5px 1.5px at 88% 45%, rgba(137,207,240,0.9), transparent),
-              radial-gradient(1.5px 1.5px at 25% 88%, rgba(255,255,255,0.7), transparent),
-              radial-gradient(1.5px 1.5px at 75% 92%, rgba(180,160,255,0.8), transparent);
-            background-size: 100% 100%;
-            animation: twinkleB 7s ease-in-out infinite;
+              radial-gradient(1.5px 1.5px at 15% 25%, rgba(137,207,240,0.9), transparent),
+              radial-gradient(1.5px 1.5px at 45% 15%, rgba(255,255,255,0.8), transparent),
+              radial-gradient(1.5px 1.5px at 70% 40%, rgba(200,150,255,0.9), transparent),
+              radial-gradient(1.5px 1.5px at 30% 75%, rgba(255,255,255,0.7), transparent),
+              radial-gradient(1.5px 1.5px at 85% 70%, rgba(137,207,240,0.8), transparent),
+              radial-gradient(1.5px 1.5px at 60% 90%, rgba(255,180,255,0.7), transparent),
+              radial-gradient(1.5px 1.5px at 95% 50%, rgba(255,255,255,0.8), transparent);
+            background-size:100% 100%;
+            animation: twinkle2 8s ease-in-out infinite;
           }
 
-          /* Bright star points with flare */
-          .flux-star-bright {
-            position: absolute;
-            width: 4px;
-            height: 4px;
-            border-radius: 50%;
-          }
-          .flux-star-bright::before,
-          .flux-star-bright::after {
-            content: '';
-            position: absolute;
-            background: currentColor;
-            border-radius: 2px;
-          }
-          .flux-star-bright::before {
-            width: 1px; height: 12px;
-            top: -4px; left: 1.5px;
-          }
-          .flux-star-bright::after {
-            width: 12px; height: 1px;
-            top: 1.5px; left: -4px;
-          }
-          .flux-star-s1 {
-            top: 18%; left: 12%;
-            background: #89CFF0;
-            color: rgba(137,207,240,0.5);
-            box-shadow: 0 0 6px 2px rgba(137,207,240,0.6);
-            animation: starFlare 6s ease-in-out infinite;
-          }
-          .flux-star-s2 {
-            top: 65%; left: 82%;
-            background: #ffffff;
-            color: rgba(255,255,255,0.4);
-            box-shadow: 0 0 8px 3px rgba(255,255,255,0.5);
-            animation: starFlare 8s ease-in-out infinite 2s;
-          }
-          .flux-star-s3 {
-            top: 40%; left: 55%;
-            background: #b89eff;
-            color: rgba(184,158,255,0.4);
-            box-shadow: 0 0 6px 2px rgba(184,158,255,0.5);
-            animation: starFlare 7s ease-in-out infinite 4s;
-          }
-          .flux-star-s4 {
-            top: 80%; left: 25%;
-            background: #00ffd5;
-            color: rgba(0,255,213,0.3);
-            box-shadow: 0 0 6px 2px rgba(0,255,213,0.4);
-            animation: starFlare 9s ease-in-out infinite 1s;
+          /* Colored twinkling stars */
+          .cs3 {
+            position:absolute; inset:0;
+            background-image:
+              radial-gradient(1.5px 1.5px at 5% 40%, rgba(255,100,200,0.8), transparent),
+              radial-gradient(1.5px 1.5px at 90% 15%, rgba(100,220,255,0.9), transparent),
+              radial-gradient(1.5px 1.5px at 50% 5%, rgba(255,255,255,0.9), transparent),
+              radial-gradient(1.5px 1.5px at 20% 95%, rgba(180,100,255,0.8), transparent),
+              radial-gradient(1.5px 1.5px at 78% 82%, rgba(255,150,100,0.6), transparent),
+              radial-gradient(1.5px 1.5px at 40% 60%, rgba(100,255,200,0.7), transparent);
+            background-size:100% 100%;
+            animation: twinkle3 4s ease-in-out infinite;
           }
 
-          /* Twinkling layer C */
-          .flux-stars-twinkle {
-            position: absolute;
-            inset: 0;
-            background-image:
-              radial-gradient(1px 1px at 5% 50%, rgba(255,200,100,0.7), transparent),
-              radial-gradient(1px 1px at 95% 10%, rgba(100,200,255,0.8), transparent),
-              radial-gradient(1px 1px at 50% 5%, rgba(255,255,255,0.9), transparent),
-              radial-gradient(1px 1px at 33% 95%, rgba(200,150,255,0.7), transparent),
-              radial-gradient(1px 1px at 80% 70%, rgba(255,100,200,0.6), transparent);
-            background-size: 100% 100%;
-            animation: twinkleC 4s ease-in-out infinite;
+          /* Bright star flares */
+          .bf {
+            position:absolute;
+            border-radius:50%;
+          }
+          .bf::before, .bf::after {
+            content:'';
+            position:absolute;
+            border-radius:2px;
+            background:currentColor;
+          }
+          .bf::before { width:1px; height:14px; top:-5px; left:calc(50% - 0.5px); }
+          .bf::after  { width:14px; height:1px; top:calc(50% - 0.5px); left:-5px; }
+
+          .bf1 {
+            width:5px; height:5px;
+            top:15%; left:10%;
+            background:#ff6ec7;
+            color:rgba(255,110,199,0.45);
+            box-shadow:0 0 8px 3px rgba(255,110,199,0.5);
+            animation: flare 7s ease-in-out infinite;
+          }
+          .bf2 {
+            width:6px; height:6px;
+            top:62%; left:85%;
+            background:#ffffff;
+            color:rgba(255,255,255,0.4);
+            box-shadow:0 0 10px 4px rgba(255,255,255,0.45);
+            animation: flare2 9s ease-in-out infinite 1.5s;
+          }
+          .bf3 {
+            width:4px; height:4px;
+            top:38%; left:58%;
+            background:#a78bff;
+            color:rgba(167,139,255,0.4);
+            box-shadow:0 0 7px 3px rgba(167,139,255,0.5);
+            animation: flare 8s ease-in-out infinite 3s;
+          }
+          .bf4 {
+            width:5px; height:5px;
+            top:78%; left:22%;
+            background:#00ffd5;
+            color:rgba(0,255,213,0.35);
+            box-shadow:0 0 8px 3px rgba(0,255,213,0.4);
+            animation: flare2 10s ease-in-out infinite 0.5s;
+          }
+          .bf5 {
+            width:4px; height:4px;
+            top:25%; left:72%;
+            background:#89CFF0;
+            color:rgba(137,207,240,0.4);
+            box-shadow:0 0 7px 3px rgba(137,207,240,0.45);
+            animation: flare 6s ease-in-out infinite 2s;
           }
         `}</style>
 
-        {/* Nebula layers */}
-        <div className="flux-nebula flux-nebula-1" />
-        <div className="flux-nebula flux-nebula-2" />
-        <div className="flux-nebula flux-nebula-3" />
+        <div className="cn cn1" />
+        <div className="cn cn2" />
+        <div className="cn cn3" />
+        <div className="cn cn4" />
 
-        {/* Star layers */}
-        <div className="flux-stars-sm" />
-        <div className="flux-stars-md" />
-        <div className="flux-stars-twinkle" />
+        <div className="cs1" />
+        <div className="cs2" />
+        <div className="cs3" />
 
-        {/* Bright star points */}
-        <div className="flux-star-bright flux-star-s1" />
-        <div className="flux-star-bright flux-star-s2" />
-        <div className="flux-star-bright flux-star-s3" />
-        <div className="flux-star-bright flux-star-s4" />
+        <div className="bf bf1" />
+        <div className="bf bf2" />
+        <div className="bf bf3" />
+        <div className="bf bf4" />
+        <div className="bf bf5" />
       </div>
     );
   }
