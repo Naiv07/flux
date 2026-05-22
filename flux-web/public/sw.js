@@ -1,9 +1,28 @@
-const CACHE_NAME = "flux-v25";
+const CACHE_NAME = "flux-v27";
 
 const STATIC_ASSETS = [
   "/",
   "/index.html",
 ];
+
+self.addEventListener("fetch", (event) => {
+  if (event.request.method !== "GET") return;
+
+  // Skip chrome-extension and non-http requests
+  if (!event.request.url.startsWith("http")) return;
+
+  event.respondWith(
+    caches.match(event.request).then((cached) => {
+      return cached || fetch(event.request).then((response) => {
+        const clone = response.clone();
+        caches.open(CACHE_NAME).then((cache) => {
+          cache.put(event.request, clone);
+        });
+        return response;
+      });
+    })
+  );
+});
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
