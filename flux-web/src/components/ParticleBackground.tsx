@@ -40,12 +40,12 @@ function Particles({ connected }: { connected: boolean }) {
     // Vibrant accent colors for random glow particles
     // Vibrant NEON accent colors — multiplied for extra glow
     const accentColors = [
-      new THREE.Color("#ff6ec7").multiplyScalar(2.5), // neon pink
-      new THREE.Color("#00ffd5").multiplyScalar(2.5), // neon cyan
-      new THREE.Color("#ffffff").multiplyScalar(2.0), // bright white
-      new THREE.Color("#ffd700").multiplyScalar(2.5), // neon gold
-      new THREE.Color("#ff4d6d").multiplyScalar(2.5), // neon red
-      new THREE.Color("#b94dff").multiplyScalar(2.5), // neon violet
+      new THREE.Color("#ff6ec7").multiplyScalar(1.6), // pink
+      new THREE.Color("#00ffd5").multiplyScalar(1.6), // cyan
+      new THREE.Color("#ffffff").multiplyScalar(1.4), // white
+      new THREE.Color("#ffd700").multiplyScalar(1.6), // gold
+      new THREE.Color("#ff4d6d").multiplyScalar(1.6), // red
+      new THREE.Color("#b94dff").multiplyScalar(1.6), // violet
     ];
 
     for (let i = 0; i < count; i++) {
@@ -90,8 +90,8 @@ function Particles({ connected }: { connected: boolean }) {
     meshRef.current.rotation.y += delta * (connected ? 0.1 : 0.05);
 
     const material = meshRef.current.material as THREE.PointsMaterial;
-    const pulse = Math.sin(state.clock.elapsedTime * 2) * 0.15;
-    material.size = 0.1 + pulse * 0.1; // pulse the glow size instead
+    const pulse = Math.sin(state.clock.elapsedTime * 1.5) * 0.02;
+    material.size = 0.1 + pulse; // gentle breathing around 0.1
   });
 
   return (
