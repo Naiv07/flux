@@ -20,8 +20,10 @@ function App() {
     if (selectedMode === "send") {
       const code = generateRoomCode();
       setRoomCode(code);
-      // Auto-connect immediately
-      setTimeout(() => connect(code), 100);
+      // Wait longer for both state AND WebSocket setup
+      setTimeout(() => {
+        connect(code);
+      }, 500); // 500ms instead of 100ms
     }
   };
 

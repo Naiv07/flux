@@ -116,17 +116,18 @@ export function useFlux(onMessage?: (e: MessageEvent) => void) {
       ws.onopen = () => {
         log("Signaling server connected");
         ws.send(JSON.stringify({ type: "join", roomCode: code }));
-      };
-      // Keep signaling server alive
-      const keepAlive = setInterval(() => {
-        if (ws.readyState === WebSocket.OPEN) {
-          ws.send(JSON.stringify({ type: "ping" }));
-        }
-      }, 25000); // ping every 25 seconds
 
-      ws.onclose = () => {
-        clearInterval(keepAlive);
-        log("Signaling server disconnected");
+        // Keep signaling server alive
+        const keepAlive = setInterval(() => {
+          if (ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: "ping" }));
+          }
+        }, 25000);
+
+        ws.onclose = () => {
+          clearInterval(keepAlive);
+          log("Signaling server disconnected");
+        };
       };
 
       ws.onmessage = async (e) => {
