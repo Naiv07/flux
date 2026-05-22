@@ -66,19 +66,82 @@ export function ParticleBackground({ connected }: { connected: boolean }) {
         height: "100vh",
         zIndex: 0,
         pointerEvents: "none",
-        background: connected
-          ? "radial-gradient(ellipse at 50% 50%, #1a1040 0%, #0a0a0f 70%)"
-          : "radial-gradient(ellipse at 50% 50%, #0d0d1a 0%, #0a0a0f 70%)",
-        transition: "background 1s ease",
+        overflow: "hidden",
+        background: "#0a0a0f",
       }}>
-        {/* CSS animated dots for mobile */}
-        <div style={{
-          position: "absolute",
-          inset: 0,
-          backgroundImage: `radial-gradient(circle, ${connected ? "#89CFF0" : "#4a5568"} 1px, transparent 1px)`,
-          backgroundSize: "40px 40px",
-          opacity: 0.3,
-        }} />
+        {/* Aurora glow blobs */}
+        <div className="flux-aurora flux-aurora-1" />
+        <div className="flux-aurora flux-aurora-2" />
+        <div className="flux-aurora flux-aurora-3" />
+
+        {/* Twinkling stars layer */}
+        <div className="flux-stars" />
+
+        <style>{`
+          @keyframes auroraDrift1 {
+            0%, 100% { transform: translate(-10%, -10%) scale(1); }
+            50% { transform: translate(10%, 15%) scale(1.2); }
+          }
+          @keyframes auroraDrift2 {
+            0%, 100% { transform: translate(15%, 10%) scale(1.1); }
+            50% { transform: translate(-15%, -5%) scale(0.9); }
+          }
+          @keyframes auroraDrift3 {
+            0%, 100% { transform: translate(5%, -15%) scale(0.95); }
+            50% { transform: translate(-10%, 10%) scale(1.15); }
+          }
+          @keyframes twinkle {
+            0%, 100% { opacity: 0.3; }
+            50% { opacity: 0.8; }
+          }
+
+          .flux-aurora {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(80px);
+            opacity: ${connected ? "0.4" : "0.25"};
+            transition: opacity 1s ease;
+          }
+          .flux-aurora-1 {
+            width: 60vw;
+            height: 60vw;
+            top: 10%;
+            left: 0;
+            background: radial-gradient(circle, #6c63ff 0%, transparent 70%);
+            animation: auroraDrift1 18s ease-in-out infinite;
+          }
+          .flux-aurora-2 {
+            width: 50vw;
+            height: 50vw;
+            bottom: 5%;
+            right: 0;
+            background: radial-gradient(circle, #89CFF0 0%, transparent 70%);
+            animation: auroraDrift2 22s ease-in-out infinite;
+          }
+          .flux-aurora-3 {
+            width: 45vw;
+            height: 45vw;
+            top: 40%;
+            left: 30%;
+            background: radial-gradient(circle, #00d4ff 0%, transparent 70%);
+            animation: auroraDrift3 25s ease-in-out infinite;
+          }
+          .flux-stars {
+            position: absolute;
+            inset: 0;
+            background-image:
+              radial-gradient(1px 1px at 20% 30%, #fff, transparent),
+              radial-gradient(1px 1px at 60% 70%, #89CFF0, transparent),
+              radial-gradient(1px 1px at 80% 20%, #fff, transparent),
+              radial-gradient(1px 1px at 40% 80%, #89CFF0, transparent),
+              radial-gradient(1px 1px at 90% 60%, #fff, transparent),
+              radial-gradient(1px 1px at 10% 90%, #89CFF0, transparent),
+              radial-gradient(1px 1px at 50% 50%, #fff, transparent),
+              radial-gradient(1px 1px at 70% 40%, #89CFF0, transparent);
+            background-size: 200px 200px;
+            animation: twinkle 4s ease-in-out infinite;
+          }
+        `}</style>
       </div>
     );
   }
