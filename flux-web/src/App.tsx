@@ -11,6 +11,7 @@ import { ScreenShareCard } from "./components/ScreenShareCard";
 import { ModeSelectCard } from "./components/ModeSelectCard";
 
 function App() {
+  const isMobileView = typeof window !== "undefined" && window.innerWidth < 768;
   const [mode, setMode] = useState<"send" | "receive" | null>(null);
   const onMessageRef = useRef<((e: MessageEvent) => void) | null>(null);
 
@@ -133,13 +134,12 @@ function App() {
         position: "relative",
         zIndex: 10,
         width: "100%",
-        maxWidth: isConnected ? "1200px" : "448px",
+        maxWidth: isMobileView ? "100%" : (isConnected ? "1200px" : "448px"),
         display: "flex",
         flexDirection: "column",
-        alignItems: "center",    // ← ADD THIS — centers children
+        alignItems: "center",
         gap: "16px",
-        margin: "0 auto",        // ← ADD THIS — centers the container
-        transition: "max-width 0.4s ease",
+        margin: "0 auto",
       }}>
         <NetworkBanner fileSize={progress.fileSize} />
 
@@ -161,7 +161,9 @@ function App() {
         {isConnected && mode && (
           <div style={{
             display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(380px, 1fr))",
+            gridTemplateColumns: isMobileView
+              ? "1fr"
+              : "repeat(auto-fit, minmax(380px, 1fr))",
             gap: "16px",
             width: "100%",
           }}>
