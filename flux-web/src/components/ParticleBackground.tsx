@@ -30,18 +30,26 @@ function Particles({ connected }: { connected: boolean }) {
 
     const branches = 3;
     const radius = 14;
-    const spin = 0.9;        // tighter curl
-    const randomness = 0.25; // less scatter = clearer arms
+    const spin = 0.9;
+    const randomness = 0.25;
 
     const colorInside = new THREE.Color("#a78bff");
     const colorOutside = new THREE.Color("#89CFF0");
 
+    // Vibrant accent colors for random glow particles
+    const accentColors = [
+      new THREE.Color("#ff6ec7"), // pink
+      new THREE.Color("#00ffd5"), // cyan
+      new THREE.Color("#ffffff"), // white
+      new THREE.Color("#ffd700"), // gold
+      new THREE.Color("#ff4d6d"), // red-pink
+      new THREE.Color("#7b61ff"), // violet
+    ];
+
     for (let i = 0; i < count; i++) {
       const i3 = i * 3;
 
-      // bias toward center for denser core
       const r = Math.pow(Math.random(), 1.5) * radius;
-
       const branchAngle = ((i % branches) / branches) * Math.PI * 2;
       const spinAngle = r * spin;
 
@@ -53,20 +61,37 @@ function Particles({ connected }: { connected: boolean }) {
       positions[i3 + 1] = randomY;
       positions[i3 + 2] = Math.sin(branchAngle + spinAngle) * r + randomZ;
 
-      const mixedColor = colorInside.clone();
-      mixedColor.lerp(colorOutside, r / radius);
+      let finalColor: THREE.Color;
 
-      colors[i3]     = mixedColor.r;
-      colors[i3 + 1] = mixedColor.g;
-      colors[i3 + 2] = mixedColor.b;
+      // 15% chance of a vibrant accent color
+      if (Math.random() < 0.15) {
+        finalColor = accentColors[
+          Math.floor(Math.random() * accentColors.length)
+        ].clone();
+      } else {
+        // normal galaxy gradient
+        finalColor = colorInside.clone();
+        finalColor.lerp(colorOutside, r / radius);
+      }
+
+      colors[i3]     = finalColor.r;
+      colors[i3 + 1] = finalColor.g;
+      colors[i3 + 2] = finalColor.b;
     }
 
     return [positions, colors];
   }, []);
 
-  useFrame((_, delta) => {
+  useFrame((state, delta) => {
     if (!meshRef.current) return;
+
+    // Rotate galaxy
     meshRef.current.rotation.y += delta * (connected ? 0.1 : 0.05);
+
+    // Subtle pulsing glow on the whole field
+    const material = meshRef.current.material as THREE.PointsMaterial;
+    const pulse = Math.sin(state.clock.elapsedTime * 1.5) * 0.1;
+    material.opacity = (connected ? 0.95 : 0.7) + pulse;
   });
 
   return (
