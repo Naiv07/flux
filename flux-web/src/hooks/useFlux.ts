@@ -6,24 +6,15 @@ const SIGNALING_SERVER =
 
 const ICE_SERVERS = {
   iceServers: [
-    // STUN servers
-    { urls: "stun:stun.cloudflare.com:3478" },
     { urls: "stun:stun.l.google.com:19302" },
     { urls: "stun:stun1.l.google.com:19302" },
-
-    // Free TURN servers from Open Relay
     {
-      urls: "turn:openrelay.metered.ca:80",
-      username: "openrelayproject",
-      credential: "openrelayproject",
-    },
-    {
-      urls: "turn:openrelay.metered.ca:443",
-      username: "openrelayproject",
-      credential: "openrelayproject",
-    },
-    {
-      urls: "turn:openrelay.metered.ca:443?transport=tcp",
+      urls: [
+        "turn:openrelay.metered.ca:80",
+        "turn:openrelay.metered.ca:80?transport=tcp",
+        "turn:openrelay.metered.ca:443",
+        "turn:openrelay.metered.ca:443?transport=tcp",
+      ],
       username: "openrelayproject",
       credential: "openrelayproject",
     },
@@ -105,6 +96,7 @@ export function useFlux(onMessage?: (e: MessageEvent) => void) {
 
   // ─── createPeerConnection ───────────────────────────────────────────────────
   const createPeerConnection = useCallback(
+    
     (code: string) => {
       const pc = new RTCPeerConnection(ICE_SERVERS);
       pcRef.current = pc;
@@ -127,7 +119,7 @@ export function useFlux(onMessage?: (e: MessageEvent) => void) {
       };
 
       pc.oniceconnectionstatechange = () => {
-        log(`ICE state: ${pc.iceConnectionState}`);
+        log(`ICE gathering: ${pc.iceGatheringState}`);
         if (pc.iceConnectionState === "connected" || 
             pc.iceConnectionState === "completed") {
           // Clear timeout when ICE succeeds
