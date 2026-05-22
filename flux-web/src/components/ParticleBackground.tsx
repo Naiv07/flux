@@ -91,7 +91,7 @@ function Particles({ connected }: { connected: boolean }) {
 
     const material = meshRef.current.material as THREE.PointsMaterial;
     const pulse = Math.sin(state.clock.elapsedTime * 2) * 0.15;
-    material.size = 0.17 + pulse * 0.1; // pulse the glow size instead
+    material.size = 0.1 + pulse * 0.1; // pulse the glow size instead
   });
 
   return (
@@ -101,7 +101,7 @@ function Particles({ connected }: { connected: boolean }) {
         <bufferAttribute attach="attributes-color" args={[colors, 3]} />
       </bufferGeometry>
       <pointsMaterial
-        size={0.19}
+        size={0.1}
         sizeAttenuation
         depthWrite={false}
         blending={THREE.AdditiveBlending}
