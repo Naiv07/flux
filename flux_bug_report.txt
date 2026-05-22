@@ -1,0 +1,6 @@
+1. The android WPA is still has layout issues during file transfer
+2. The application is having a paring/connection issue while being on the same local network
+3. Cancel option is functional but won't update the state of the other user, i.e. if the receiver taps cancel during a file transfer, the sender's side doesn't get updated, instead it keeps sending the file on the connection
+4. Share screen feature is non functional on the phone, even if the laptop shares the screen, the mobile device is unable to view it
+5. If the code doesn't work, the app still shows connecting even if the user has come back to the dashboard, needs the app to be restarted
+6. A discover option needs to be introduced for the devices which are on the same network using the app

@@ -131,81 +131,180 @@ export function ParticleBackground({ connected }: { connected: boolean }) {
         zIndex: 0,
         pointerEvents: "none",
         overflow: "hidden",
-        background: "#0a0a0f",
+        background: "#07071a",
       }}>
-        {/* Aurora glow blobs */}
-        <div className="flux-aurora flux-aurora-1" />
-        <div className="flux-aurora flux-aurora-2" />
-        <div className="flux-aurora flux-aurora-3" />
-
-        {/* Twinkling stars layer */}
-        <div className="flux-stars" />
-
         <style>{`
-          @keyframes auroraDrift1 {
-            0%, 100% { transform: translate(-10%, -10%) scale(1); }
-            50% { transform: translate(10%, 15%) scale(1.2); }
+          @keyframes nebulaFloat1 {
+            0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.5; }
+            50% { transform: translate(5%, 8%) scale(1.15); opacity: 0.7; }
           }
-          @keyframes auroraDrift2 {
-            0%, 100% { transform: translate(15%, 10%) scale(1.1); }
-            50% { transform: translate(-15%, -5%) scale(0.9); }
+          @keyframes nebulaFloat2 {
+            0%, 100% { transform: translate(0, 0) scale(1.1); opacity: 0.4; }
+            50% { transform: translate(-8%, -5%) scale(0.95); opacity: 0.6; }
           }
-          @keyframes auroraDrift3 {
-            0%, 100% { transform: translate(5%, -15%) scale(0.95); }
-            50% { transform: translate(-10%, 10%) scale(1.15); }
+          @keyframes nebulaFloat3 {
+            0%, 100% { transform: translate(0, 0) scale(1); opacity: 0.3; }
+            50% { transform: translate(6%, -8%) scale(1.2); opacity: 0.5; }
           }
-          @keyframes twinkle {
-            0%, 100% { opacity: 0.3; }
-            50% { opacity: 0.8; }
+          @keyframes twinkleA {
+            0%, 100% { opacity: 0.2; transform: scale(0.8); }
+            50% { opacity: 1; transform: scale(1.2); }
+          }
+          @keyframes twinkleB {
+            0%, 100% { opacity: 0.6; transform: scale(1); }
+            50% { opacity: 0.1; transform: scale(0.7); }
+          }
+          @keyframes twinkleC {
+            0%, 33% { opacity: 0.8; }
+            66% { opacity: 0.1; }
+            100% { opacity: 0.8; }
+          }
+          @keyframes starFlare {
+            0%, 100% { opacity: 0.6; transform: scale(1) rotate(0deg); }
+            50% { opacity: 1; transform: scale(1.4) rotate(45deg); }
           }
 
-          .flux-aurora {
+          .flux-nebula {
             position: absolute;
             border-radius: 50%;
-            filter: blur(80px);
-            opacity: ${connected ? "0.4" : "0.25"};
-            transition: opacity 1s ease;
+            filter: blur(70px);
           }
-          .flux-aurora-1 {
-            width: 60vw;
-            height: 60vw;
-            top: 10%;
-            left: 0;
-            background: radial-gradient(circle, #6c63ff 0%, transparent 70%);
-            animation: auroraDrift1 18s ease-in-out infinite;
+          .flux-nebula-1 {
+            width: 70vw; height: 70vw;
+            top: -10%; left: -15%;
+            background: radial-gradient(circle, ${connected ? "#5b3d9e" : "#3d2870"} 0%, transparent 70%);
+            animation: nebulaFloat1 20s ease-in-out infinite;
           }
-          .flux-aurora-2 {
-            width: 50vw;
-            height: 50vw;
-            bottom: 5%;
-            right: 0;
-            background: radial-gradient(circle, #89CFF0 0%, transparent 70%);
-            animation: auroraDrift2 22s ease-in-out infinite;
+          .flux-nebula-2 {
+            width: 60vw; height: 60vw;
+            bottom: 0%; right: -10%;
+            background: radial-gradient(circle, ${connected ? "#1a4a8a" : "#102a5a"} 0%, transparent 70%);
+            animation: nebulaFloat2 25s ease-in-out infinite;
           }
-          .flux-aurora-3 {
-            width: 45vw;
-            height: 45vw;
-            top: 40%;
-            left: 30%;
-            background: radial-gradient(circle, #00d4ff 0%, transparent 70%);
-            animation: auroraDrift3 25s ease-in-out infinite;
+          .flux-nebula-3 {
+            width: 50vw; height: 50vw;
+            top: 35%; left: 25%;
+            background: radial-gradient(circle, ${connected ? "#2d1b6e" : "#1a0f45"} 0%, transparent 70%);
+            animation: nebulaFloat3 18s ease-in-out infinite;
           }
-          .flux-stars {
+
+          /* Small star field */
+          .flux-stars-sm {
             position: absolute;
             inset: 0;
             background-image:
-              radial-gradient(1px 1px at 20% 30%, #fff, transparent),
-              radial-gradient(1px 1px at 60% 70%, #89CFF0, transparent),
-              radial-gradient(1px 1px at 80% 20%, #fff, transparent),
-              radial-gradient(1px 1px at 40% 80%, #89CFF0, transparent),
-              radial-gradient(1px 1px at 90% 60%, #fff, transparent),
-              radial-gradient(1px 1px at 10% 90%, #89CFF0, transparent),
-              radial-gradient(1px 1px at 50% 50%, #fff, transparent),
-              radial-gradient(1px 1px at 70% 40%, #89CFF0, transparent);
-            background-size: 200px 200px;
-            animation: twinkle 4s ease-in-out infinite;
+              radial-gradient(1px 1px at 8% 15%, rgba(255,255,255,0.8), transparent),
+              radial-gradient(1px 1px at 22% 45%, rgba(137,207,240,0.6), transparent),
+              radial-gradient(1px 1px at 38% 22%, rgba(255,255,255,0.7), transparent),
+              radial-gradient(1px 1px at 55% 68%, rgba(180,160,255,0.6), transparent),
+              radial-gradient(1px 1px at 72% 35%, rgba(255,255,255,0.8), transparent),
+              radial-gradient(1px 1px at 85% 80%, rgba(137,207,240,0.5), transparent),
+              radial-gradient(1px 1px at 15% 75%, rgba(255,255,255,0.6), transparent),
+              radial-gradient(1px 1px at 48% 90%, rgba(180,160,255,0.7), transparent),
+              radial-gradient(1px 1px at 92% 20%, rgba(255,255,255,0.8), transparent),
+              radial-gradient(1px 1px at 65% 12%, rgba(137,207,240,0.6), transparent),
+              radial-gradient(1px 1px at 30% 58%, rgba(255,255,255,0.5), transparent),
+              radial-gradient(1px 1px at 78% 55%, rgba(180,160,255,0.6), transparent);
+            background-size: 100% 100%;
+            animation: twinkleA 5s ease-in-out infinite;
+          }
+
+          /* Medium stars */
+          .flux-stars-md {
+            position: absolute;
+            inset: 0;
+            background-image:
+              radial-gradient(1.5px 1.5px at 18% 30%, rgba(137,207,240,0.9), transparent),
+              radial-gradient(1.5px 1.5px at 62% 25%, rgba(255,255,255,0.9), transparent),
+              radial-gradient(1.5px 1.5px at 42% 72%, rgba(180,160,255,0.8), transparent),
+              radial-gradient(1.5px 1.5px at 88% 45%, rgba(137,207,240,0.9), transparent),
+              radial-gradient(1.5px 1.5px at 25% 88%, rgba(255,255,255,0.7), transparent),
+              radial-gradient(1.5px 1.5px at 75% 92%, rgba(180,160,255,0.8), transparent);
+            background-size: 100% 100%;
+            animation: twinkleB 7s ease-in-out infinite;
+          }
+
+          /* Bright star points with flare */
+          .flux-star-bright {
+            position: absolute;
+            width: 4px;
+            height: 4px;
+            border-radius: 50%;
+          }
+          .flux-star-bright::before,
+          .flux-star-bright::after {
+            content: '';
+            position: absolute;
+            background: currentColor;
+            border-radius: 2px;
+          }
+          .flux-star-bright::before {
+            width: 1px; height: 12px;
+            top: -4px; left: 1.5px;
+          }
+          .flux-star-bright::after {
+            width: 12px; height: 1px;
+            top: 1.5px; left: -4px;
+          }
+          .flux-star-s1 {
+            top: 18%; left: 12%;
+            background: #89CFF0;
+            color: rgba(137,207,240,0.5);
+            box-shadow: 0 0 6px 2px rgba(137,207,240,0.6);
+            animation: starFlare 6s ease-in-out infinite;
+          }
+          .flux-star-s2 {
+            top: 65%; left: 82%;
+            background: #ffffff;
+            color: rgba(255,255,255,0.4);
+            box-shadow: 0 0 8px 3px rgba(255,255,255,0.5);
+            animation: starFlare 8s ease-in-out infinite 2s;
+          }
+          .flux-star-s3 {
+            top: 40%; left: 55%;
+            background: #b89eff;
+            color: rgba(184,158,255,0.4);
+            box-shadow: 0 0 6px 2px rgba(184,158,255,0.5);
+            animation: starFlare 7s ease-in-out infinite 4s;
+          }
+          .flux-star-s4 {
+            top: 80%; left: 25%;
+            background: #00ffd5;
+            color: rgba(0,255,213,0.3);
+            box-shadow: 0 0 6px 2px rgba(0,255,213,0.4);
+            animation: starFlare 9s ease-in-out infinite 1s;
+          }
+
+          /* Twinkling layer C */
+          .flux-stars-twinkle {
+            position: absolute;
+            inset: 0;
+            background-image:
+              radial-gradient(1px 1px at 5% 50%, rgba(255,200,100,0.7), transparent),
+              radial-gradient(1px 1px at 95% 10%, rgba(100,200,255,0.8), transparent),
+              radial-gradient(1px 1px at 50% 5%, rgba(255,255,255,0.9), transparent),
+              radial-gradient(1px 1px at 33% 95%, rgba(200,150,255,0.7), transparent),
+              radial-gradient(1px 1px at 80% 70%, rgba(255,100,200,0.6), transparent);
+            background-size: 100% 100%;
+            animation: twinkleC 4s ease-in-out infinite;
           }
         `}</style>
+
+        {/* Nebula layers */}
+        <div className="flux-nebula flux-nebula-1" />
+        <div className="flux-nebula flux-nebula-2" />
+        <div className="flux-nebula flux-nebula-3" />
+
+        {/* Star layers */}
+        <div className="flux-stars-sm" />
+        <div className="flux-stars-md" />
+        <div className="flux-stars-twinkle" />
+
+        {/* Bright star points */}
+        <div className="flux-star-bright flux-star-s1" />
+        <div className="flux-star-bright flux-star-s2" />
+        <div className="flux-star-bright flux-star-s3" />
+        <div className="flux-star-bright flux-star-s4" />
       </div>
     );
   }
