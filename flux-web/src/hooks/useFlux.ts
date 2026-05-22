@@ -36,7 +36,7 @@ export function useFlux(onMessage?: (e: MessageEvent) => void) {
   const [roomCode, setRoomCode] = useState("");
   const [logs, setLogs] = useState<string[]>([]);
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
- const [connectionPath, setConnectionPath] = useState<"local" | "internet" | "relay" | null>(null);
+  const [connectionPath, setConnectionPath] = useState<"local" | "internet" | "relay" | null>(null);
 
   const wsRef = useRef<WebSocket | null>(null);
   const pcRef = useRef<RTCPeerConnection | null>(null);
@@ -79,7 +79,11 @@ export function useFlux(onMessage?: (e: MessageEvent) => void) {
       channel.onopen = () => {
         log("DataChannel open — peers connected!");
         setConnectionState("connected");
-        // Call via ref to avoid circular dependency
+        // Clear the connection timeout
+        if (connectionTimeoutRef.current) {
+          clearTimeout(connectionTimeoutRef.current);
+          connectionTimeoutRef.current = null;
+        }
         setTimeout(() => detectPathRef.current?.(), 1000);
       };
 
@@ -124,12 +128,17 @@ export function useFlux(onMessage?: (e: MessageEvent) => void) {
 
       pc.oniceconnectionstatechange = () => {
         log(`ICE state: ${pc.iceConnectionState}`);
+        if (pc.iceConnectionState === "connected" || 
+            pc.iceConnectionState === "completed") {
+          // Clear timeout when ICE succeeds
+          if (connectionTimeoutRef.current) {
+            clearTimeout(connectionTimeoutRef.current);
+            connectionTimeoutRef.current = null;
+          }
+        }
         if (pc.iceConnectionState === "failed") {
           log("ICE failed — restarting");
           pc.restartIce();
-        }
-        if (pc.iceConnectionState === "disconnected") {
-          log("ICE disconnected");
         }
       };
 
@@ -154,12 +163,11 @@ export function useFlux(onMessage?: (e: MessageEvent) => void) {
         clearTimeout(connectionTimeoutRef.current);
       }
 
-      // Auto-reset if stuck for 20 seconds
       connectionTimeoutRef.current = setTimeout(() => {
         log("Connection timed out — resetting");
         cleanup();
         setConnectionState("idle");
-      }, 20000);
+      }, 60000);
 
       const ws = new WebSocket(SIGNALING_SERVER);
       wsRef.current = ws;
