@@ -101,7 +101,7 @@ function Particles({ connected }: { connected: boolean }) {
         <bufferAttribute attach="attributes-color" args={[colors, 3]} />
       </bufferGeometry>
       <pointsMaterial
-        size={0.25}
+        size={0.19}
         sizeAttenuation
         depthWrite={false}
         blending={THREE.AdditiveBlending}
