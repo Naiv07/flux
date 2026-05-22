@@ -11,12 +11,12 @@ import { ScreenShareCard } from "./components/ScreenShareCard";
 import { ModeSelectCard } from "./components/ModeSelectCard";
 import { DiscoverCard } from "./components/DiscoverCard";
 
-function App() {
-  const [isMobileView, setIsMobileView] = useState(window.innerWidth < 768);
-
-  const SIGNALING_SERVER_URL =
+ const SIGNALING_SERVER_URL =
   import.meta.env.VITE_SIGNALING_SERVER ||
   "ws://localhost:8080/ws";
+
+function App() {
+  const [isMobileView, setIsMobileView] = useState(window.innerWidth < 768);
 
   useEffect(() => {
     const handleResize = () => setIsMobileView(window.innerWidth < 768);
@@ -32,8 +32,7 @@ function App() {
     if (selectedMode === "send") {
       const code = generateRoomCode();
       setRoomCode(code);
-      // Wait for WebSocket to fully establish
-      setTimeout(() => connect(code), 800);
+      setTimeout(() => connect(code), 300);
     }
   };
 

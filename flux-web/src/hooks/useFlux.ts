@@ -105,8 +105,15 @@ export function useFlux(onMessage?: (e: MessageEvent) => void) {
         }
       };
 
-      pc.onconnectionstatechange = () => {
-        log(`Connection state: ${pc.connectionState}`);
+      pc.oniceconnectionstatechange = () => {
+        log(`ICE state: ${pc.iceConnectionState}`);
+        if (pc.iceConnectionState === "failed") {
+          log("ICE failed — restarting");
+          pc.restartIce();
+        }
+        if (pc.iceConnectionState === "disconnected") {
+          log("ICE disconnected");
+        }
       };
 
       pc.ondatachannel = (e) => {
@@ -132,14 +139,9 @@ export function useFlux(onMessage?: (e: MessageEvent) => void) {
 
       // Auto-reset if stuck for 20 seconds
       connectionTimeoutRef.current = setTimeout(() => {
-        setConnectionState((prev) => {
-          if (prev !== "connected") {
-            log("Connection timed out — resetting");
-            cleanup();
-            return "idle";
-          }
-          return prev;
-        });
+        log("Connection timed out — resetting");
+        cleanup();
+        setConnectionState("idle");
       }, 20000);
 
       const ws = new WebSocket(SIGNALING_SERVER);
@@ -147,9 +149,7 @@ export function useFlux(onMessage?: (e: MessageEvent) => void) {
 
       ws.onopen = () => {
         log("Signaling server connected");
-        setTimeout(() => {
-          ws.send(JSON.stringify({ type: "join", roomCode: code }));
-        }, 200);
+        ws.send(JSON.stringify({ type: "join", roomCode: code }));
 
         const keepAlive = setInterval(() => {
           if (ws.readyState === WebSocket.OPEN) {
