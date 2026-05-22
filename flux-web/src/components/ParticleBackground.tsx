@@ -5,48 +5,72 @@ import * as THREE from "three";
 
 function Particles({ connected }: { connected: boolean }) {
   const meshRef = useRef<THREE.Points>(null);
-  const count = 800; // reduced for mobile
+  const count = 5000;
 
-  const [positions, velocities] = useMemo(() => {
+  const [positions, colors] = useMemo(() => {
     const positions = new Float32Array(count * 3);
-    const velocities = new Float32Array(count * 3);
+    const colors = new Float32Array(count * 3);
+
+    const branches = 3;       // spiral arms
+    const radius = 12;        // galaxy size
+    const spin = 1.2;         // how much arms curl
+    const randomness = 0.4;   // scatter
+
+    // Galaxy colors — purple core to baby blue edge
+    const colorInside = new THREE.Color("#8b83ff");
+    const colorOutside = new THREE.Color("#89CFF0");
+
     for (let i = 0; i < count; i++) {
-      positions[i * 3]     = (Math.random() - 0.5) * 30;
-      positions[i * 3 + 1] = (Math.random() - 0.5) * 30;
-      positions[i * 3 + 2] = (Math.random() - 0.5) * 10;
-      velocities[i * 3]     = (Math.random() - 0.5) * 0.003;
-      velocities[i * 3 + 1] = (Math.random() - 0.5) * 0.003;
-      velocities[i * 3 + 2] = 0;
+      const i3 = i * 3;
+
+      // Distance from center
+      const r = Math.random() * radius;
+
+      // Which spiral arm
+      const branchAngle = ((i % branches) / branches) * Math.PI * 2;
+      const spinAngle = r * spin;
+
+      // Randomness — more scatter at edges
+      const randomX = Math.pow(Math.random(), 3) * (Math.random() < 0.5 ? 1 : -1) * randomness * r;
+      const randomY = Math.pow(Math.random(), 3) * (Math.random() < 0.5 ? 1 : -1) * randomness * r * 0.3;
+      const randomZ = Math.pow(Math.random(), 3) * (Math.random() < 0.5 ? 1 : -1) * randomness * r;
+
+      positions[i3]     = Math.cos(branchAngle + spinAngle) * r + randomX;
+      positions[i3 + 1] = randomY;
+      positions[i3 + 2] = Math.sin(branchAngle + spinAngle) * r + randomZ;
+
+      // Color blend based on distance from center
+      const mixedColor = colorInside.clone();
+      mixedColor.lerp(colorOutside, r / radius);
+
+      colors[i3]     = mixedColor.r;
+      colors[i3 + 1] = mixedColor.g;
+      colors[i3 + 2] = mixedColor.b;
     }
-    return [positions, velocities];
+
+    return [positions, colors];
   }, []);
 
-  useFrame(() => {
+  useFrame((_, delta) => {
     if (!meshRef.current) return;
-    const pos = meshRef.current.geometry.attributes.position.array as Float32Array;
-    for (let i = 0; i < count; i++) {
-      pos[i * 3]     += velocities[i * 3];
-      pos[i * 3 + 1] += velocities[i * 3 + 1];
-      if (pos[i * 3] > 15)       pos[i * 3] = -15;
-      if (pos[i * 3] < -15)      pos[i * 3] = 15;
-      if (pos[i * 3 + 1] > 15)   pos[i * 3 + 1] = -15;
-      if (pos[i * 3 + 1] < -15)  pos[i * 3 + 1] = 15;
-    }
-    meshRef.current.geometry.attributes.position.needsUpdate = true;
-    meshRef.current.rotation.z += connected ? 0.0008 : 0.0002;
+    // Slow continuous rotation
+    meshRef.current.rotation.y += delta * (connected ? 0.08 : 0.04);
   });
 
   return (
-    <points ref={meshRef}>
+    <points ref={meshRef} rotation={[0.4, 0, 0]}>
       <bufferGeometry>
         <bufferAttribute attach="attributes-position" args={[positions, 3]} />
+        <bufferAttribute attach="attributes-color" args={[colors, 3]} />
       </bufferGeometry>
       <pointsMaterial
-        size={0.04}
-        color={connected ? "#89CFF0" : "#4a6fa5"}
+        size={0.06}
+        sizeAttenuation
+        depthWrite={false}
+        blending={THREE.AdditiveBlending}
+        vertexColors
         transparent
         opacity={connected ? 0.9 : 0.6}
-        sizeAttenuation
       />
     </points>
   );
@@ -157,7 +181,7 @@ export function ParticleBackground({ connected }: { connected: boolean }) {
     }}>
       <Canvas
         style={{ width: "100%", height: "100%" }}
-        camera={{ position: [0, 0, 10], fov: 75 }}
+        camera={{ position: [0, 6, 14], fov: 60 }}
         gl={{
           antialias: false,
           alpha: true,
