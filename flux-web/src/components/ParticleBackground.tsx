@@ -91,7 +91,7 @@ function Particles({ connected }: { connected: boolean }) {
 
     const material = meshRef.current.material as THREE.PointsMaterial;
     const pulse = Math.sin(state.clock.elapsedTime * 2) * 0.15;
-    material.size = 0.25 + pulse * 0.1; // pulse the glow size instead
+    material.size = 0.17 + pulse * 0.1; // pulse the glow size instead
   });
 
   return (
