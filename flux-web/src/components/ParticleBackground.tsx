@@ -15,7 +15,8 @@ function Particles({ connected }: { connected: boolean }) {
     const ctx = canvas.getContext("2d")!;
     const gradient = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
     gradient.addColorStop(0, "rgba(255,255,255,1)");
-    gradient.addColorStop(0.4, "rgba(255,255,255,0.6)");
+    gradient.addColorStop(0.2, "rgba(255,255,255,0.9)");
+    gradient.addColorStop(0.5, "rgba(255,255,255,0.3)");
     gradient.addColorStop(1, "rgba(255,255,255,0)");
     ctx.fillStyle = gradient;
     ctx.beginPath();
@@ -37,13 +38,14 @@ function Particles({ connected }: { connected: boolean }) {
     const colorOutside = new THREE.Color("#89CFF0");
 
     // Vibrant accent colors for random glow particles
+    // Vibrant NEON accent colors — multiplied for extra glow
     const accentColors = [
-      new THREE.Color("#ff6ec7"), // pink
-      new THREE.Color("#00ffd5"), // cyan
-      new THREE.Color("#ffffff"), // white
-      new THREE.Color("#ffd700"), // gold
-      new THREE.Color("#ff4d6d"), // red-pink
-      new THREE.Color("#7b61ff"), // violet
+      new THREE.Color("#ff6ec7").multiplyScalar(2.5), // neon pink
+      new THREE.Color("#00ffd5").multiplyScalar(2.5), // neon cyan
+      new THREE.Color("#ffffff").multiplyScalar(2.0), // bright white
+      new THREE.Color("#ffd700").multiplyScalar(2.5), // neon gold
+      new THREE.Color("#ff4d6d").multiplyScalar(2.5), // neon red
+      new THREE.Color("#b94dff").multiplyScalar(2.5), // neon violet
     ];
 
     for (let i = 0; i < count; i++) {
@@ -85,13 +87,11 @@ function Particles({ connected }: { connected: boolean }) {
   useFrame((state, delta) => {
     if (!meshRef.current) return;
 
-    // Rotate galaxy
     meshRef.current.rotation.y += delta * (connected ? 0.1 : 0.05);
 
-    // Subtle pulsing glow on the whole field
     const material = meshRef.current.material as THREE.PointsMaterial;
-    const pulse = Math.sin(state.clock.elapsedTime * 1.5) * 0.1;
-    material.opacity = (connected ? 0.95 : 0.7) + pulse;
+    const pulse = Math.sin(state.clock.elapsedTime * 2) * 0.15;
+    material.size = 0.25 + pulse * 0.1; // pulse the glow size instead
   });
 
   return (
@@ -101,15 +101,16 @@ function Particles({ connected }: { connected: boolean }) {
         <bufferAttribute attach="attributes-color" args={[colors, 3]} />
       </bufferGeometry>
       <pointsMaterial
-        size={0.15}
+        size={0.25}
         sizeAttenuation
         depthWrite={false}
         blending={THREE.AdditiveBlending}
         vertexColors
         transparent
-        opacity={connected ? 0.95 : 0.7}
+        opacity={1}
         map={dotTexture}
         alphaTest={0.001}
+        toneMapped={false}
       />
     </points>
   );
