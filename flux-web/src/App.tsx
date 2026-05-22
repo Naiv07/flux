@@ -9,9 +9,21 @@ import { ConnectionCard } from "./components/ConnectionCard";
 import { TransferCard } from "./components/TransferCard";
 import { ScreenShareCard } from "./components/ScreenShareCard";
 import { ModeSelectCard } from "./components/ModeSelectCard";
+import { DiscoverCard } from "./components/DiscoverCard";
 
 function App() {
-  const isMobileView = typeof window !== "undefined" && window.innerWidth < 768;
+  const [isMobileView, setIsMobileView] = useState(window.innerWidth < 768);
+
+  const SIGNALING_SERVER_URL =
+  import.meta.env.VITE_SIGNALING_SERVER ||
+  "ws://localhost:8080/ws";
+
+  useEffect(() => {
+    const handleResize = () => setIsMobileView(window.innerWidth < 768);
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
+
   const [mode, setMode] = useState<"send" | "receive" | null>(null);
   const onMessageRef = useRef<((e: MessageEvent) => void) | null>(null);
 
@@ -20,10 +32,8 @@ function App() {
     if (selectedMode === "send") {
       const code = generateRoomCode();
       setRoomCode(code);
-      // Wait longer for both state AND WebSocket setup
-      setTimeout(() => {
-        connect(code);
-      }, 500); // 500ms instead of 100ms
+      // Wait for WebSocket to fully establish
+      setTimeout(() => connect(code), 800);
     }
   };
 
@@ -113,9 +123,9 @@ function App() {
   };
 
   const handleBack = () => {
+    disconnect();    // fully cleanup WebSocket
     setMode(null);
     setRoomCode("");
-    disconnect();
   };
 
   return (
@@ -148,15 +158,27 @@ function App() {
         {!mode && <ModeSelectCard setMode={handleSetMode} />}
 
         {mode && !isConnected && (
-          <ConnectionCard
-            connectionState={connectionState}
-            roomCode={roomCode}
-            setRoomCode={setRoomCode}
-            connect={connect}
-            disconnect={handleDisconnect}
-            mode={mode}
-            goBack={handleBack}
-          />
+  <>
+            <ConnectionCard
+              connectionState={connectionState}
+              roomCode={roomCode}
+              setRoomCode={setRoomCode}
+              connect={connect}
+              disconnect={handleDisconnect}
+              mode={mode}
+              goBack={handleBack}
+            />
+
+            {mode === "receive" && (
+              <DiscoverCard
+                onConnect={(code) => {
+                  setRoomCode(code);
+                  connect(code);
+                }}
+                signalingUrl={SIGNALING_SERVER_URL}
+              />
+            )}
+          </>
         )}
 
         {/* Connected — show cards side by side on desktop */}

@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect } from "react";
+import { useRef, useState, useEffect, useCallback } from "react";
 import { motion } from "framer-motion";
 import { Monitor, MonitorPlay } from "@phosphor-icons/react";
 
@@ -17,10 +17,19 @@ export function ScreenShareCard({
   const localVideoRef  = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
 
-  // Show remote stream when received
+  // Use callback ref instead of useEffect
+  const setRemoteVideo = useCallback((node: HTMLVideoElement | null) => {
+    if (node && remoteStream) {
+      node.srcObject = remoteStream;
+      node.play().catch(() => { });
+    }
+  }, [remoteStream]);
+
+  // Also update when remoteStream changes
   useEffect(() => {
     if (remoteVideoRef.current && remoteStream) {
       remoteVideoRef.current.srcObject = remoteStream;
+      remoteVideoRef.current.play().catch(() => { });
     }
   }, [remoteStream]);
 
@@ -91,10 +100,21 @@ export function ScreenShareCard({
             Receiving screen
           </p>
           <video
-            ref={remoteVideoRef}
+            ref={(node) => {
+              remoteVideoRef.current = node!;
+              setRemoteVideo(node);
+            }}
             autoPlay
             playsInline
-            style={{ width: "100%", display: "block", maxHeight: "200px", objectFit: "contain" }}
+            muted={false}
+            controls
+            style={{
+              width: "100%",
+              display: "block",
+              maxHeight: "250px",
+              objectFit: "contain",
+              background: "#000",
+            }}
           />
         </motion.div>
       )}

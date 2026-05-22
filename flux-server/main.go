@@ -10,34 +10,29 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-// Upgrader converts HTTP connection to WebSocket
 var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool {
-		return true // Allow all origins for now
+		return true
 	},
 }
 
-// Client represents a connected peer
 type Client struct {
 	conn     *websocket.Conn
 	roomCode string
 	send     chan []byte
 }
 
-// Message structure between peers
 type Message struct {
 	Type     string          `json:"type"`
 	RoomCode string          `json:"roomCode"`
 	Data     json.RawMessage `json:"data"`
 }
 
-// Room holds two peers maximum
 type Room struct {
 	clients []*Client
 	mu      sync.Mutex
 }
 
-// Hub manages all active rooms
 type Hub struct {
 	rooms map[string]*Room
 	mu    sync.RWMutex
@@ -49,7 +44,6 @@ func newHub() *Hub {
 	}
 }
 
-// Get or create a room by code
 func (h *Hub) getOrCreateRoom(code string) *Room {
 	h.mu.Lock()
 	defer h.mu.Unlock()
@@ -63,27 +57,24 @@ func (h *Hub) getOrCreateRoom(code string) *Room {
 	return room
 }
 
-// Remove room when empty
 func (h *Hub) removeRoom(code string) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 	delete(h.rooms, code)
 }
 
-// Add client to room — max 2 peers
 func (r *Room) addClient(client *Client) bool {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
 	if len(r.clients) >= 2 {
-		return false // Room full
+		return false
 	}
 
 	r.clients = append(r.clients, client)
 	return true
 }
 
-// Remove client from room
 func (r *Room) removeClient(client *Client) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -96,7 +87,6 @@ func (r *Room) removeClient(client *Client) {
 	}
 }
 
-// Broadcast message to the other peer in the room
 func (r *Room) broadcast(sender *Client, message []byte) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -110,7 +100,6 @@ func (r *Room) broadcast(sender *Client, message []byte) {
 
 var hub = newHub()
 
-// Handle each WebSocket connection
 func handleConnection(w http.ResponseWriter, r *http.Request) {
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
@@ -128,14 +117,12 @@ func handleConnection(w http.ResponseWriter, r *http.Request) {
 			room := hub.getOrCreateRoom(client.roomCode)
 			room.removeClient(client)
 
-			// Notify other peer
 			leaveMsg, _ := json.Marshal(Message{
 				Type:     "peer-left",
 				RoomCode: client.roomCode,
 			})
 			room.broadcast(client, leaveMsg)
 
-			// Clean up empty room
 			room.mu.Lock()
 			empty := len(room.clients) == 0
 			room.mu.Unlock()
@@ -148,7 +135,7 @@ func handleConnection(w http.ResponseWriter, r *http.Request) {
 		log.Println("Client disconnected")
 	}()
 
-	// Write pump — sends messages to this client
+	// Write pump
 	go func() {
 		for msg := range client.send {
 			if err := conn.WriteMessage(websocket.TextMessage, msg); err != nil {
@@ -159,7 +146,7 @@ func handleConnection(w http.ResponseWriter, r *http.Request) {
 
 	log.Println("New client connected")
 
-	// Read pump — receives messages from this client
+	// Read pump
 	for {
 		_, rawMsg, err := conn.ReadMessage()
 		if err != nil {
@@ -175,12 +162,10 @@ func handleConnection(w http.ResponseWriter, r *http.Request) {
 		switch msg.Type {
 
 		case "join":
-			// Client joining a room with a code
 			client.roomCode = msg.RoomCode
 			room := hub.getOrCreateRoom(msg.RoomCode)
 
 			if !room.addClient(client) {
-				// Room full
 				errMsg, _ := json.Marshal(Message{Type: "room-full"})
 				client.send <- errMsg
 				return
@@ -188,7 +173,6 @@ func handleConnection(w http.ResponseWriter, r *http.Request) {
 
 			log.Printf("Client joined room: %s", msg.RoomCode)
 
-			// Notify other peer someone joined
 			joinedMsg, _ := json.Marshal(Message{
 				Type:     "peer-joined",
 				RoomCode: msg.RoomCode,
@@ -196,15 +180,38 @@ func handleConnection(w http.ResponseWriter, r *http.Request) {
 			room.broadcast(client, joinedMsg)
 
 		case "offer", "answer", "ice-candidate":
-			// WebRTC signaling — forward to the other peer
 			if client.roomCode != "" {
 				room := hub.getOrCreateRoom(client.roomCode)
 				room.broadcast(client, rawMsg)
 				log.Printf("Forwarded %s in room %s", msg.Type, client.roomCode)
 			}
+
 		case "ping":
-			// just ignore — keeps connection alive
+			// Keep connection alive — ignore
 			log.Println("Ping received")
+
+		case "discover":
+			// Return list of rooms waiting for a second peer
+			log.Println("Discovery request received")
+
+			hub.mu.RLock()
+			availableRooms := make([]string, 0)
+			for code, room := range hub.rooms {
+				room.mu.Lock()
+				waiting := len(room.clients) == 1
+				room.mu.Unlock()
+				if waiting {
+					availableRooms = append(availableRooms, code)
+				}
+			}
+			hub.mu.RUnlock()
+
+			discoverMsg, _ := json.Marshal(map[string]interface{}{
+				"type":  "available-rooms",
+				"rooms": availableRooms,
+			})
+			client.send <- discoverMsg
+			log.Printf("Sent %d available rooms", len(availableRooms))
 		}
 	}
 }
@@ -212,7 +219,6 @@ func handleConnection(w http.ResponseWriter, r *http.Request) {
 func main() {
 	http.HandleFunc("/ws", handleConnection)
 
-	// Health check endpoint
 	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("Flux signaling server running"))
 	})

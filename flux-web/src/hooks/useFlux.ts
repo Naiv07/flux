@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import type { ConnectionState } from "../types";
 
-const SIGNALING_SERVER = import.meta.env.VITE_SIGNALING_SERVER || "ws://localhost:8080/ws";
+const SIGNALING_SERVER =
+  import.meta.env.VITE_SIGNALING_SERVER || "ws://localhost:8080/ws";
 
 const ICE_SERVERS = {
   iceServers: [
@@ -13,16 +14,21 @@ const ICE_SERVERS = {
 };
 
 export function useFlux(onMessage?: (e: MessageEvent) => void) {
-  const [connectionState, setConnectionState] = useState<ConnectionState>("idle");
+  const [connectionState, setConnectionState] =
+    useState<ConnectionState>("idle");
   const [roomCode, setRoomCode] = useState("");
   const [logs, setLogs] = useState<string[]>([]);
-  const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null); 
-  const [connectionPath, setConnectionPath] = useState<"local" | "internet" | "relay" | null>(null);
+  const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
+ const [connectionPath, setConnectionPath] = useState<"local" | "internet" | "relay" | null>(null);
 
   const wsRef = useRef<WebSocket | null>(null);
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const channelRef = useRef<RTCDataChannel | null>(null);
+  const connectionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const screenStreamRef = useRef<MediaStream | null>(null);
+  const detectPathRef = useRef<(() => void) | null>(null);
 
+  // ─── log ────────────────────────────────────────────────────────────────────
   const log = useCallback((msg: string) => {
     console.log("[Flux]", msg);
     setLogs((prev) => [
@@ -31,6 +37,7 @@ export function useFlux(onMessage?: (e: MessageEvent) => void) {
     ]);
   }, []);
 
+  // ─── cleanup ────────────────────────────────────────────────────────────────
   const cleanup = useCallback(() => {
     channelRef.current?.close();
     pcRef.current?.close();
@@ -40,6 +47,14 @@ export function useFlux(onMessage?: (e: MessageEvent) => void) {
     wsRef.current = null;
   }, []);
 
+  // ─── stopScreenShare ────────────────────────────────────────────────────────
+  const stopScreenShare = useCallback(() => {
+    screenStreamRef.current?.getTracks().forEach((t) => t.stop());
+    screenStreamRef.current = null;
+    log("Screen sharing stopped");
+  }, [log]);
+
+  // ─── setupDataChannel ───────────────────────────────────────────────────────
   const setupDataChannel = useCallback(
     (channel: RTCDataChannel) => {
       channelRef.current = channel;
@@ -47,8 +62,8 @@ export function useFlux(onMessage?: (e: MessageEvent) => void) {
       channel.onopen = () => {
         log("DataChannel open — peers connected!");
         setConnectionState("connected");
-        // Detect path after a moment (ICE needs time to settle)
-        setTimeout(() => detectConnectionPath(), 1000);
+        // Call via ref to avoid circular dependency
+        setTimeout(() => detectPathRef.current?.(), 1000);
       };
 
       channel.onclose = () => {
@@ -67,12 +82,12 @@ export function useFlux(onMessage?: (e: MessageEvent) => void) {
     [log, onMessage]
   );
 
+  // ─── createPeerConnection ───────────────────────────────────────────────────
   const createPeerConnection = useCallback(
     (code: string) => {
       const pc = new RTCPeerConnection(ICE_SERVERS);
       pcRef.current = pc;
 
-      // Receive remote screen share
       pc.ontrack = (e) => {
         log("Remote stream received");
         setRemoteStream(e.streams[0]);
@@ -104,20 +119,38 @@ export function useFlux(onMessage?: (e: MessageEvent) => void) {
     [setupDataChannel, log]
   );
 
+  // ─── connect ────────────────────────────────────────────────────────────────
   const connect = useCallback(
     (code: string) => {
       cleanup();
       setConnectionState("connecting");
       log(`Connecting to room: ${code}`);
 
+      if (connectionTimeoutRef.current) {
+        clearTimeout(connectionTimeoutRef.current);
+      }
+
+      // Auto-reset if stuck for 20 seconds
+      connectionTimeoutRef.current = setTimeout(() => {
+        setConnectionState((prev) => {
+          if (prev !== "connected") {
+            log("Connection timed out — resetting");
+            cleanup();
+            return "idle";
+          }
+          return prev;
+        });
+      }, 20000);
+
       const ws = new WebSocket(SIGNALING_SERVER);
       wsRef.current = ws;
 
       ws.onopen = () => {
         log("Signaling server connected");
-        ws.send(JSON.stringify({ type: "join", roomCode: code }));
+        setTimeout(() => {
+          ws.send(JSON.stringify({ type: "join", roomCode: code }));
+        }, 200);
 
-        // Keep signaling server alive
         const keepAlive = setInterval(() => {
           if (ws.readyState === WebSocket.OPEN) {
             ws.send(JSON.stringify({ type: "ping" }));
@@ -142,11 +175,7 @@ export function useFlux(onMessage?: (e: MessageEvent) => void) {
             const offer = await pc.createOffer();
             await pc.setLocalDescription(offer);
             ws.send(
-              JSON.stringify({
-                type: "offer",
-                roomCode: code,
-                data: offer,
-              })
+              JSON.stringify({ type: "offer", roomCode: code, data: offer })
             );
             break;
           }
@@ -154,17 +183,11 @@ export function useFlux(onMessage?: (e: MessageEvent) => void) {
           case "offer": {
             log("Offer received — creating answer");
             const pc = createPeerConnection(code);
-            await pc.setRemoteDescription(
-              new RTCSessionDescription(msg.data)
-            );
+            await pc.setRemoteDescription(new RTCSessionDescription(msg.data));
             const answer = await pc.createAnswer();
             await pc.setLocalDescription(answer);
             ws.send(
-              JSON.stringify({
-                type: "answer",
-                roomCode: code,
-                data: answer,
-              })
+              JSON.stringify({ type: "answer", roomCode: code, data: answer })
             );
             break;
           }
@@ -203,14 +226,11 @@ export function useFlux(onMessage?: (e: MessageEvent) => void) {
         log("WebSocket error");
         setConnectionState("disconnected");
       };
-
-      ws.onclose = () => {
-        log("Signaling server disconnected");
-      };
     },
     [cleanup, createPeerConnection, setupDataChannel, log]
   );
 
+  // ─── sendMessage ────────────────────────────────────────────────────────────
   const sendMessage = useCallback(
     (msg: string) => {
       if (channelRef.current?.readyState === "open") {
@@ -223,21 +243,16 @@ export function useFlux(onMessage?: (e: MessageEvent) => void) {
     [log]
   );
 
-  useEffect(() => {
-    return () => cleanup();
-  }, [cleanup]);
-
+  // ─── disconnect ─────────────────────────────────────────────────────────────
   const disconnect = useCallback(() => {
     cleanup();
     setConnectionState("idle");
     setRoomCode("");
-    setConnectionPath(null);  // ← add this
+    setConnectionPath(null);
     log("Disconnected");
   }, [cleanup, log]);
 
-  // Screen sharing
-  const screenStreamRef = useRef<MediaStream | null>(null);
-
+  // ─── startScreenShare ───────────────────────────────────────────────────────
   const startScreenShare = useCallback(async () => {
     try {
       const stream = await navigator.mediaDevices.getDisplayMedia({
@@ -247,30 +262,23 @@ export function useFlux(onMessage?: (e: MessageEvent) => void) {
 
       screenStreamRef.current = stream;
 
-      // Add tracks to peer connection
       stream.getTracks().forEach((track) => {
         pcRef.current?.addTrack(track, stream);
       });
 
-      // Stop sharing when user clicks browser's stop button
       stream.getVideoTracks()[0].onended = () => {
         stopScreenShare();
       };
 
       log("Screen sharing started");
       return stream;
-    } catch (err) {
+    } catch {
       log("Screen share cancelled or denied");
       return null;
     }
-  }, []);
+  }, [log, stopScreenShare]);
 
-  const stopScreenShare = useCallback(() => {
-    screenStreamRef.current?.getTracks().forEach((track) => track.stop());
-    screenStreamRef.current = null;
-    log("Screen sharing stopped");
-  }, []);
-
+  // ─── detectConnectionPath ───────────────────────────────────────────────────
   const detectConnectionPath = useCallback(async () => {
     const pc = pcRef.current;
     if (!pc) return;
@@ -279,13 +287,15 @@ export function useFlux(onMessage?: (e: MessageEvent) => void) {
       const stats = await pc.getStats();
       stats.forEach((report) => {
         if (report.type === "candidate-pair" && report.state === "succeeded") {
-          // Find the local candidate type
           stats.forEach((s) => {
             if (s.id === report.localCandidateId) {
               if (s.candidateType === "host") {
                 setConnectionPath("local");
                 log("Connection path: LOCAL network (fast)");
-              } else if (s.candidateType === "srflx" || s.candidateType === "prflx") {
+              } else if (
+                s.candidateType === "srflx" ||
+                s.candidateType === "prflx"
+              ) {
                 setConnectionPath("internet");
                 log("Connection path: INTERNET (standard)");
               } else if (s.candidateType === "relay") {
@@ -296,10 +306,18 @@ export function useFlux(onMessage?: (e: MessageEvent) => void) {
           });
         }
       });
-    } catch (err) {
+    } catch {
       console.log("[Flux] Could not detect path");
     }
   }, [log]);
+
+  // Assign detectConnectionPath to ref after it's defined
+  detectPathRef.current = detectConnectionPath;
+
+  // ─── cleanup on unmount ─────────────────────────────────────────────────────
+  useEffect(() => {
+    return () => cleanup();
+  }, [cleanup]);
 
   return {
     connectionState,

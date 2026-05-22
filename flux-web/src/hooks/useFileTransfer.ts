@@ -83,6 +83,7 @@ export function useFileTransfer(channel: RTCDataChannel | null) {
     });
 
     setTimeout(() => {
+      cancelRef.current = false; // reset after cancel
       setProgress((prev) =>
         prev.status === "cancelled" ? { ...prev, status: "idle" } : prev
       );
@@ -200,6 +201,7 @@ export function useFileTransfer(channel: RTCDataChannel | null) {
         }
 
         if (meta.type === "transfer-cancelled") {
+          cancelRef.current = true; // stop sender immediately
           const state = receivingRef.current;
           if (state?.writable) {
             state.writable.close().catch(() => {});
@@ -213,6 +215,7 @@ export function useFileTransfer(channel: RTCDataChannel | null) {
             status: "cancelled",
           });
           setTimeout(() => {
+            cancelRef.current = false;
             setProgress((prev) =>
               prev.status === "cancelled" ? { ...prev, status: "idle" } : prev
             );
