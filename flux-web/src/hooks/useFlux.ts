@@ -1,3 +1,4 @@
+// Flux useFlux hook - v2
 import { useEffect, useRef, useState, useCallback } from "react";
 import type { ConnectionState } from "../types";
 
