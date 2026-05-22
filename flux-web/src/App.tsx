@@ -1,3 +1,4 @@
+import { PathBadge } from "./components/PathBadge";
 import { NetworkBanner } from "./components/NetworkBanner";
 import { generateRoomCode } from "./lib/transferStore";
 import { useRef, useState, useEffect } from "react";
@@ -33,6 +34,7 @@ function App() {
     startScreenShare,
     stopScreenShare,
     remoteStream,
+    connectionPath,
   } = useFlux((e) => onMessageRef.current?.(e));
 
   const {
@@ -163,6 +165,9 @@ function App() {
             gap: "16px",
             width: "100%",
           }}>
+            <div style={{ gridColumn: "1 / -1" }}>
+              <PathBadge path={connectionPath} />
+            </div>
             <ConnectionCard
               connectionState={connectionState}
               roomCode={roomCode}

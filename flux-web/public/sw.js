@@ -1,4 +1,4 @@
-const CACHE_NAME = "flux-v20";
+const CACHE_NAME = "flux-v21";
 
 const STATIC_ASSETS = [
   "/",

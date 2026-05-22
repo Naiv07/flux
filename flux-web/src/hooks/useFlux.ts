@@ -17,6 +17,7 @@ export function useFlux(onMessage?: (e: MessageEvent) => void) {
   const [roomCode, setRoomCode] = useState("");
   const [logs, setLogs] = useState<string[]>([]);
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null); 
+  const [connectionPath, setConnectionPath] = useState<"local" | "internet" | "relay" | null>(null);
 
   const wsRef = useRef<WebSocket | null>(null);
   const pcRef = useRef<RTCPeerConnection | null>(null);
@@ -46,6 +47,8 @@ export function useFlux(onMessage?: (e: MessageEvent) => void) {
       channel.onopen = () => {
         log("DataChannel open — peers connected!");
         setConnectionState("connected");
+        // Detect path after a moment (ICE needs time to settle)
+        setTimeout(() => detectConnectionPath(), 1000);
       };
 
       channel.onclose = () => {
@@ -227,6 +230,7 @@ export function useFlux(onMessage?: (e: MessageEvent) => void) {
     cleanup();
     setConnectionState("idle");
     setRoomCode("");
+    setConnectionPath(null);  // ← add this
     log("Disconnected");
   }, [cleanup, log]);
 
@@ -266,6 +270,36 @@ export function useFlux(onMessage?: (e: MessageEvent) => void) {
     log("Screen sharing stopped");
   }, []);
 
+  const detectConnectionPath = useCallback(async () => {
+    const pc = pcRef.current;
+    if (!pc) return;
+
+    try {
+      const stats = await pc.getStats();
+      stats.forEach((report) => {
+        if (report.type === "candidate-pair" && report.state === "succeeded") {
+          // Find the local candidate type
+          stats.forEach((s) => {
+            if (s.id === report.localCandidateId) {
+              if (s.candidateType === "host") {
+                setConnectionPath("local");
+                log("Connection path: LOCAL network (fast)");
+              } else if (s.candidateType === "srflx" || s.candidateType === "prflx") {
+                setConnectionPath("internet");
+                log("Connection path: INTERNET (standard)");
+              } else if (s.candidateType === "relay") {
+                setConnectionPath("relay");
+                log("Connection path: RELAY (slow)");
+              }
+            }
+          });
+        }
+      });
+    } catch (err) {
+      console.log("[Flux] Could not detect path");
+    }
+  }, [log]);
+
   return {
     connectionState,
     roomCode,
@@ -278,5 +312,6 @@ export function useFlux(onMessage?: (e: MessageEvent) => void) {
     startScreenShare,
     stopScreenShare,
     remoteStream,
+    connectionPath,
   };
 }
