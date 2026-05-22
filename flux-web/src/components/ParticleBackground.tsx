@@ -5,41 +5,54 @@ import * as THREE from "three";
 
 function Particles({ connected }: { connected: boolean }) {
   const meshRef = useRef<THREE.Points>(null);
-  const count = 5000;
+  const count = 6000;
+
+  // Create a soft circular dot texture
+  const dotTexture = useMemo(() => {
+    const canvas = document.createElement("canvas");
+    canvas.width = 64;
+    canvas.height = 64;
+    const ctx = canvas.getContext("2d")!;
+    const gradient = ctx.createRadialGradient(32, 32, 0, 32, 32, 32);
+    gradient.addColorStop(0, "rgba(255,255,255,1)");
+    gradient.addColorStop(0.4, "rgba(255,255,255,0.6)");
+    gradient.addColorStop(1, "rgba(255,255,255,0)");
+    ctx.fillStyle = gradient;
+    ctx.beginPath();
+    ctx.arc(32, 32, 32, 0, Math.PI * 2);
+    ctx.fill();
+    return new THREE.CanvasTexture(canvas);
+  }, []);
 
   const [positions, colors] = useMemo(() => {
     const positions = new Float32Array(count * 3);
     const colors = new Float32Array(count * 3);
 
-    const branches = 3;       // spiral arms
-    const radius = 12;        // galaxy size
-    const spin = 1.2;         // how much arms curl
-    const randomness = 0.4;   // scatter
+    const branches = 3;
+    const radius = 14;
+    const spin = 0.9;        // tighter curl
+    const randomness = 0.25; // less scatter = clearer arms
 
-    // Galaxy colors — purple core to baby blue edge
-    const colorInside = new THREE.Color("#8b83ff");
+    const colorInside = new THREE.Color("#a78bff");
     const colorOutside = new THREE.Color("#89CFF0");
 
     for (let i = 0; i < count; i++) {
       const i3 = i * 3;
 
-      // Distance from center
-      const r = Math.random() * radius;
+      // bias toward center for denser core
+      const r = Math.pow(Math.random(), 1.5) * radius;
 
-      // Which spiral arm
       const branchAngle = ((i % branches) / branches) * Math.PI * 2;
       const spinAngle = r * spin;
 
-      // Randomness — more scatter at edges
       const randomX = Math.pow(Math.random(), 3) * (Math.random() < 0.5 ? 1 : -1) * randomness * r;
-      const randomY = Math.pow(Math.random(), 3) * (Math.random() < 0.5 ? 1 : -1) * randomness * r * 0.3;
+      const randomY = Math.pow(Math.random(), 3) * (Math.random() < 0.5 ? 1 : -1) * randomness * r * 0.15;
       const randomZ = Math.pow(Math.random(), 3) * (Math.random() < 0.5 ? 1 : -1) * randomness * r;
 
       positions[i3]     = Math.cos(branchAngle + spinAngle) * r + randomX;
       positions[i3 + 1] = randomY;
       positions[i3 + 2] = Math.sin(branchAngle + spinAngle) * r + randomZ;
 
-      // Color blend based on distance from center
       const mixedColor = colorInside.clone();
       mixedColor.lerp(colorOutside, r / radius);
 
@@ -53,24 +66,25 @@ function Particles({ connected }: { connected: boolean }) {
 
   useFrame((_, delta) => {
     if (!meshRef.current) return;
-    // Slow continuous rotation
-    meshRef.current.rotation.y += delta * (connected ? 0.08 : 0.04);
+    meshRef.current.rotation.y += delta * (connected ? 0.1 : 0.05);
   });
 
   return (
-    <points ref={meshRef} rotation={[0.4, 0, 0]}>
+    <points ref={meshRef} rotation={[1.1, 0, 0]}>
       <bufferGeometry>
         <bufferAttribute attach="attributes-position" args={[positions, 3]} />
         <bufferAttribute attach="attributes-color" args={[colors, 3]} />
       </bufferGeometry>
       <pointsMaterial
-        size={0.06}
+        size={0.15}
         sizeAttenuation
         depthWrite={false}
         blending={THREE.AdditiveBlending}
         vertexColors
         transparent
-        opacity={connected ? 0.9 : 0.6}
+        opacity={connected ? 0.95 : 0.7}
+        map={dotTexture}
+        alphaTest={0.001}
       />
     </points>
   );
@@ -181,7 +195,7 @@ export function ParticleBackground({ connected }: { connected: boolean }) {
     }}>
       <Canvas
         style={{ width: "100%", height: "100%" }}
-        camera={{ position: [0, 6, 14], fov: 60 }}
+        camera={{ position: [0, 8, 16], fov: 55 }}
         gl={{
           antialias: false,
           alpha: true,
