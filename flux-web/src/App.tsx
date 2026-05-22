@@ -118,8 +118,8 @@ function App() {
       minHeight: "100vh",
       display: "flex",
       flexDirection: "column",
-      alignItems: "center",
-      justifyContent: "center",
+      alignItems: "center",      // centers horizontally
+      justifyContent: "center",  // centers vertically
       padding: "24px",
       gap: "16px",
       position: "relative",
@@ -131,10 +131,12 @@ function App() {
         position: "relative",
         zIndex: 10,
         width: "100%",
-        maxWidth: isConnected ? "1200px" : "100%",
+        maxWidth: isConnected ? "1200px" : "448px",
         display: "flex",
         flexDirection: "column",
+        alignItems: "center",    // ← ADD THIS — centers children
         gap: "16px",
+        margin: "0 auto",        // ← ADD THIS — centers the container
         transition: "max-width 0.4s ease",
       }}>
         <NetworkBanner fileSize={progress.fileSize} />

@@ -43,7 +43,7 @@ export function NetworkBanner({ fileSize }: Props) {
           borderRadius: "12px",
           padding: "10px 14px",
           width: "100%",
-          maxWidth: "448px",
+          maxWidth: "100%",
           display: "flex",
           alignItems: "center",
           gap: "10px",
