@@ -2,7 +2,7 @@ import { motion } from "framer-motion";
 import { Lightning, Globe, WarningCircle } from "@phosphor-icons/react";
 
 interface Props {
-  path: "local" | "internet" | "relay" | null;
+  path: "local" | "internet" | "relay" | "ws-relay" | null;
 }
 
 export function PathBadge({ path }: Props) {
@@ -26,12 +26,20 @@ export function PathBadge({ path }: Props) {
       icon: <Globe size={16} weight="bold" color="#89CFF0" />,
     },
     relay: {
-      label: "Relay Connection",
-      sub: "Slower — restricted network",
+      label: "TURN Relay",
+      sub: "Relayed connection",
       color: "#fbbf24",
       bg: "rgba(251,191,36,0.1)",
       border: "rgba(251,191,36,0.25)",
       icon: <WarningCircle size={16} weight="bold" color="#fbbf24" />,
+    },
+    "ws-relay": {
+      label: "Server Relay",
+      sub: "Connected via Flux server",
+      color: "#a78bff",
+      bg: "rgba(167,139,255,0.1)",
+      border: "rgba(167,139,255,0.25)",
+      icon: <WarningCircle size={16} weight="bold" color="#a78bff" />,
     },
   };
 

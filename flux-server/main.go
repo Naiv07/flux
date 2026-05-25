@@ -13,15 +13,16 @@ import (
 
 var upgrader = websocket.Upgrader{
 	CheckOrigin:     func(r *http.Request) bool { return true },
-	ReadBufferSize:  1024,
-	WriteBufferSize: 1024,
+	ReadBufferSize:  65536,
+	WriteBufferSize: 65536,
 }
 
 type Client struct {
-	conn      *websocket.Conn
-	roomCode  string
-	send      chan []byte
+	conn        *websocket.Conn
+	roomCode    string
+	send        chan []byte
 	connectedAt time.Time
+	isRelay     bool
 }
 
 type Message struct {
@@ -43,7 +44,6 @@ type Hub struct {
 
 func newHub() *Hub {
 	h := &Hub{rooms: make(map[string]*Room)}
-	// Clean up stale rooms every 5 minutes
 	go func() {
 		for range time.Tick(5 * time.Minute) {
 			h.cleanup()
@@ -52,7 +52,6 @@ func newHub() *Hub {
 	return h
 }
 
-// Remove rooms older than 10 minutes
 func (h *Hub) cleanup() {
 	h.mu.Lock()
 	defer h.mu.Unlock()
@@ -63,7 +62,7 @@ func (h *Hub) cleanup() {
 		room.mu.Unlock()
 		if empty || age > 10*time.Minute {
 			delete(h.rooms, code)
-			log.Printf("Cleaned up stale room: %s", code)
+			log.Printf("Cleaned up room: %s", code)
 		}
 	}
 }
@@ -114,7 +113,7 @@ func (r *Room) broadcast(sender *Client, message []byte) {
 			select {
 			case client.send <- message:
 			default:
-				log.Println("Client send buffer full — dropping message")
+				log.Println("Send buffer full — dropping")
 			}
 		}
 	}
@@ -135,7 +134,6 @@ func handleConnection(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Set connection timeouts
 	conn.SetReadDeadline(time.Now().Add(120 * time.Second))
 	conn.SetPongHandler(func(string) error {
 		conn.SetReadDeadline(time.Now().Add(120 * time.Second))
@@ -144,7 +142,7 @@ func handleConnection(w http.ResponseWriter, r *http.Request) {
 
 	client := &Client{
 		conn:        conn,
-		send:        make(chan []byte, 512),
+		send:        make(chan []byte, 1024),
 		connectedAt: time.Now(),
 	}
 
@@ -152,13 +150,11 @@ func handleConnection(w http.ResponseWriter, r *http.Request) {
 		if client.roomCode != "" {
 			room := hub.getOrCreateRoom(client.roomCode)
 			room.removeClient(client)
-
-			leaveMsg, _ := json.Marshal(map[string]interface{}{
+			leaveMsg, _ := json.Marshal(map[string]string{
 				"type":     "peer-left",
 				"roomCode": client.roomCode,
 			})
 			room.broadcast(client, leaveMsg)
-
 			if room.count() == 0 {
 				hub.removeRoom(client.roomCode)
 				log.Printf("Room removed: %s", client.roomCode)
@@ -169,7 +165,7 @@ func handleConnection(w http.ResponseWriter, r *http.Request) {
 		log.Println("Client disconnected")
 	}()
 
-	// Write pump with ping ticker
+	// Write pump
 	go func() {
 		ticker := time.NewTicker(30 * time.Second)
 		defer ticker.Stop()
@@ -195,14 +191,11 @@ func handleConnection(w http.ResponseWriter, r *http.Request) {
 
 	log.Println("New client connected")
 
-	// Read pump
 	for {
 		_, rawMsg, err := conn.ReadMessage()
 		if err != nil {
 			break
 		}
-
-		// Reset read deadline on any message
 		conn.SetReadDeadline(time.Now().Add(120 * time.Second))
 
 		var msg Message
@@ -216,23 +209,17 @@ func handleConnection(w http.ResponseWriter, r *http.Request) {
 		case "join":
 			client.roomCode = msg.RoomCode
 			room := hub.getOrCreateRoom(msg.RoomCode)
-
 			if !room.addClient(client) {
 				errMsg, _ := json.Marshal(map[string]string{"type": "room-full"})
 				client.send <- errMsg
 				return
 			}
-
 			log.Printf("Client joined room: %s (peers: %d)", msg.RoomCode, room.count())
-
-			// Tell the other peer someone joined
 			joinedMsg, _ := json.Marshal(map[string]string{
 				"type":     "peer-joined",
 				"roomCode": msg.RoomCode,
 			})
 			room.broadcast(client, joinedMsg)
-
-			// Confirm join to this client
 			okMsg, _ := json.Marshal(map[string]interface{}{
 				"type":  "joined",
 				"peers": room.count(),
@@ -247,14 +234,49 @@ func handleConnection(w http.ResponseWriter, r *http.Request) {
 			}
 
 		case "ready":
-			// Peer signals it's ready for ICE
 			if client.roomCode != "" {
 				room := hub.getOrCreateRoom(client.roomCode)
-				readyMsg, _ := json.Marshal(map[string]string{
-					"type": "peer-ready",
-				})
+				readyMsg, _ := json.Marshal(map[string]string{"type": "peer-ready"})
 				room.broadcast(client, readyMsg)
-				log.Printf("Peer ready in room %s", client.roomCode)
+			}
+
+		// ── WebSocket relay mode ─────────────────────────────────────────────
+		case "relay-request":
+			// Client wants to switch to relay mode
+			if client.roomCode != "" {
+				client.isRelay = true
+				room := hub.getOrCreateRoom(client.roomCode)
+				log.Printf("Relay requested in room %s", client.roomCode)
+
+				// Check if other peer is also in relay mode
+				room.mu.Lock()
+				otherRelay := false
+				for _, c := range room.clients {
+					if c != client && c.isRelay {
+						otherRelay = true
+					}
+				}
+				room.mu.Unlock()
+
+				// Notify other peer to switch to relay
+				relayMsg, _ := json.Marshal(map[string]string{
+					"type": "relay-start",
+				})
+				room.broadcast(client, relayMsg)
+
+				// Confirm relay to this client
+				confirmMsg, _ := json.Marshal(map[string]interface{}{
+					"type":       "relay-ready",
+					"bothReady":  otherRelay,
+				})
+				client.send <- confirmMsg
+			}
+
+		case "relay-data":
+			// Raw data relay between peers — forward as-is
+			if client.roomCode != "" && client.isRelay {
+				room := hub.getOrCreateRoom(client.roomCode)
+				room.broadcast(client, rawMsg)
 			}
 
 		case "ping":
@@ -269,7 +291,7 @@ func handleConnection(w http.ResponseWriter, r *http.Request) {
 				waiting := len(room.clients) == 1
 				age := time.Since(room.createdAt).Seconds()
 				room.mu.Unlock()
-				if waiting && age < 300 { // only rooms less than 5 mins old
+				if waiting && age < 300 {
 					available = append(available, map[string]interface{}{
 						"code": code,
 						"age":  int(age),
@@ -277,32 +299,27 @@ func handleConnection(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 			hub.mu.RUnlock()
-
 			discoverMsg, _ := json.Marshal(map[string]interface{}{
 				"type":  "available-rooms",
 				"rooms": available,
 			})
 			client.send <- discoverMsg
-			log.Printf("Sent %d available rooms", len(available))
 		}
 	}
 }
 
 func main() {
 	http.HandleFunc("/ws", handleConnection)
-
 	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		rooms := 0
 		hub.mu.RLock()
-		rooms = len(hub.rooms)
+		rooms := len(hub.rooms)
 		hub.mu.RUnlock()
 		json.NewEncoder(w).Encode(map[string]interface{}{
 			"status": "ok",
 			"rooms":  rooms,
 		})
 	})
-
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
