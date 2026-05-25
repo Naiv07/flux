@@ -38,6 +38,7 @@ function App() {
 
     const {
     connectionState,
+    connectionStatus,
     roomCode,
     setRoomCode,
     connect,
@@ -159,6 +160,7 @@ function App() {
         {mode && !isConnected && (
   <>
             <ConnectionCard
+              connectionStatus={connectionStatus}
               connectionState={connectionState}
               roomCode={roomCode}
               setRoomCode={setRoomCode}
@@ -195,6 +197,7 @@ function App() {
             </div>
             <ConnectionCard
               connectionState={connectionState}
+              connectionStatus={connectionStatus}
               roomCode={roomCode}
               setRoomCode={setRoomCode}
               connect={connect}

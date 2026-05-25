@@ -6,20 +6,22 @@ import (
 	"net/http"
 	"os"
 	"sync"
+	"time"
 
 	"github.com/gorilla/websocket"
 )
 
 var upgrader = websocket.Upgrader{
-	CheckOrigin: func(r *http.Request) bool {
-		return true
-	},
+	CheckOrigin:     func(r *http.Request) bool { return true },
+	ReadBufferSize:  1024,
+	WriteBufferSize: 1024,
 }
 
 type Client struct {
-	conn     *websocket.Conn
-	roomCode string
-	send     chan []byte
+	conn      *websocket.Conn
+	roomCode  string
+	send      chan []byte
+	connectedAt time.Time
 }
 
 type Message struct {
@@ -29,8 +31,9 @@ type Message struct {
 }
 
 type Room struct {
-	clients []*Client
-	mu      sync.Mutex
+	clients   []*Client
+	createdAt time.Time
+	mu        sync.Mutex
 }
 
 type Hub struct {
@@ -39,20 +42,39 @@ type Hub struct {
 }
 
 func newHub() *Hub {
-	return &Hub{
-		rooms: make(map[string]*Room),
+	h := &Hub{rooms: make(map[string]*Room)}
+	// Clean up stale rooms every 5 minutes
+	go func() {
+		for range time.Tick(5 * time.Minute) {
+			h.cleanup()
+		}
+	}()
+	return h
+}
+
+// Remove rooms older than 10 minutes
+func (h *Hub) cleanup() {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	for code, room := range h.rooms {
+		room.mu.Lock()
+		age := time.Since(room.createdAt)
+		empty := len(room.clients) == 0
+		room.mu.Unlock()
+		if empty || age > 10*time.Minute {
+			delete(h.rooms, code)
+			log.Printf("Cleaned up stale room: %s", code)
+		}
 	}
 }
 
 func (h *Hub) getOrCreateRoom(code string) *Room {
 	h.mu.Lock()
 	defer h.mu.Unlock()
-
 	if room, exists := h.rooms[code]; exists {
 		return room
 	}
-
-	room := &Room{}
+	room := &Room{createdAt: time.Now()}
 	h.rooms[code] = room
 	return room
 }
@@ -66,11 +88,9 @@ func (h *Hub) removeRoom(code string) {
 func (r *Room) addClient(client *Client) bool {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-
 	if len(r.clients) >= 2 {
 		return false
 	}
-
 	r.clients = append(r.clients, client)
 	return true
 }
@@ -78,7 +98,6 @@ func (r *Room) addClient(client *Client) bool {
 func (r *Room) removeClient(client *Client) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-
 	for i, c := range r.clients {
 		if c == client {
 			r.clients = append(r.clients[:i], r.clients[i+1:]...)
@@ -90,12 +109,21 @@ func (r *Room) removeClient(client *Client) {
 func (r *Room) broadcast(sender *Client, message []byte) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-
 	for _, client := range r.clients {
 		if client != sender {
-			client.send <- message
+			select {
+			case client.send <- message:
+			default:
+				log.Println("Client send buffer full — dropping message")
+			}
 		}
 	}
+}
+
+func (r *Room) count() int {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return len(r.clients)
 }
 
 var hub = newHub()
@@ -107,9 +135,17 @@ func handleConnection(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Set connection timeouts
+	conn.SetReadDeadline(time.Now().Add(120 * time.Second))
+	conn.SetPongHandler(func(string) error {
+		conn.SetReadDeadline(time.Now().Add(120 * time.Second))
+		return nil
+	})
+
 	client := &Client{
-		conn: conn,
-		send: make(chan []byte, 256),
+		conn:        conn,
+		send:        make(chan []byte, 512),
+		connectedAt: time.Now(),
 	}
 
 	defer func() {
@@ -117,29 +153,42 @@ func handleConnection(w http.ResponseWriter, r *http.Request) {
 			room := hub.getOrCreateRoom(client.roomCode)
 			room.removeClient(client)
 
-			leaveMsg, _ := json.Marshal(Message{
-				Type:     "peer-left",
-				RoomCode: client.roomCode,
+			leaveMsg, _ := json.Marshal(map[string]interface{}{
+				"type":     "peer-left",
+				"roomCode": client.roomCode,
 			})
 			room.broadcast(client, leaveMsg)
 
-			room.mu.Lock()
-			empty := len(room.clients) == 0
-			room.mu.Unlock()
-			if empty {
+			if room.count() == 0 {
 				hub.removeRoom(client.roomCode)
-				log.Println("Room removed:", client.roomCode)
+				log.Printf("Room removed: %s", client.roomCode)
 			}
 		}
+		close(client.send)
 		conn.Close()
 		log.Println("Client disconnected")
 	}()
 
-	// Write pump
+	// Write pump with ping ticker
 	go func() {
-		for msg := range client.send {
-			if err := conn.WriteMessage(websocket.TextMessage, msg); err != nil {
-				break
+		ticker := time.NewTicker(30 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case msg, ok := <-client.send:
+				conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
+				if !ok {
+					conn.WriteMessage(websocket.CloseMessage, []byte{})
+					return
+				}
+				if err := conn.WriteMessage(websocket.TextMessage, msg); err != nil {
+					return
+				}
+			case <-ticker.C:
+				conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
+				if err := conn.WriteMessage(websocket.PingMessage, nil); err != nil {
+					return
+				}
 			}
 		}
 	}()
@@ -152,6 +201,9 @@ func handleConnection(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			break
 		}
+
+		// Reset read deadline on any message
+		conn.SetReadDeadline(time.Now().Add(120 * time.Second))
 
 		var msg Message
 		if err := json.Unmarshal(rawMsg, &msg); err != nil {
@@ -166,18 +218,26 @@ func handleConnection(w http.ResponseWriter, r *http.Request) {
 			room := hub.getOrCreateRoom(msg.RoomCode)
 
 			if !room.addClient(client) {
-				errMsg, _ := json.Marshal(Message{Type: "room-full"})
+				errMsg, _ := json.Marshal(map[string]string{"type": "room-full"})
 				client.send <- errMsg
 				return
 			}
 
-			log.Printf("Client joined room: %s", msg.RoomCode)
+			log.Printf("Client joined room: %s (peers: %d)", msg.RoomCode, room.count())
 
-			joinedMsg, _ := json.Marshal(Message{
-				Type:     "peer-joined",
-				RoomCode: msg.RoomCode,
+			// Tell the other peer someone joined
+			joinedMsg, _ := json.Marshal(map[string]string{
+				"type":     "peer-joined",
+				"roomCode": msg.RoomCode,
 			})
 			room.broadcast(client, joinedMsg)
+
+			// Confirm join to this client
+			okMsg, _ := json.Marshal(map[string]interface{}{
+				"type":  "joined",
+				"peers": room.count(),
+			})
+			client.send <- okMsg
 
 		case "offer", "answer", "ice-candidate":
 			if client.roomCode != "" {
@@ -186,32 +246,44 @@ func handleConnection(w http.ResponseWriter, r *http.Request) {
 				log.Printf("Forwarded %s in room %s", msg.Type, client.roomCode)
 			}
 
+		case "ready":
+			// Peer signals it's ready for ICE
+			if client.roomCode != "" {
+				room := hub.getOrCreateRoom(client.roomCode)
+				readyMsg, _ := json.Marshal(map[string]string{
+					"type": "peer-ready",
+				})
+				room.broadcast(client, readyMsg)
+				log.Printf("Peer ready in room %s", client.roomCode)
+			}
+
 		case "ping":
-			// Keep connection alive — ignore
-			log.Println("Ping received")
+			pongMsg, _ := json.Marshal(map[string]string{"type": "pong"})
+			client.send <- pongMsg
 
 		case "discover":
-			// Return list of rooms waiting for a second peer
-			log.Println("Discovery request received")
-
 			hub.mu.RLock()
-			availableRooms := make([]string, 0)
+			available := make([]map[string]interface{}, 0)
 			for code, room := range hub.rooms {
 				room.mu.Lock()
 				waiting := len(room.clients) == 1
+				age := time.Since(room.createdAt).Seconds()
 				room.mu.Unlock()
-				if waiting {
-					availableRooms = append(availableRooms, code)
+				if waiting && age < 300 { // only rooms less than 5 mins old
+					available = append(available, map[string]interface{}{
+						"code": code,
+						"age":  int(age),
+					})
 				}
 			}
 			hub.mu.RUnlock()
 
 			discoverMsg, _ := json.Marshal(map[string]interface{}{
 				"type":  "available-rooms",
-				"rooms": availableRooms,
+				"rooms": available,
 			})
 			client.send <- discoverMsg
-			log.Printf("Sent %d available rooms", len(availableRooms))
+			log.Printf("Sent %d available rooms", len(available))
 		}
 	}
 }
@@ -220,14 +292,22 @@ func main() {
 	http.HandleFunc("/ws", handleConnection)
 
 	http.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("Flux signaling server running"))
+		w.Header().Set("Content-Type", "application/json")
+		rooms := 0
+		hub.mu.RLock()
+		rooms = len(hub.rooms)
+		hub.mu.RUnlock()
+		json.NewEncoder(w).Encode(map[string]interface{}{
+			"status": "ok",
+			"rooms":  rooms,
+		})
 	})
 
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8080"
 	}
-	log.Println("Flux signaling server starting on :" + port)
+	log.Printf("Flux signaling server starting on :%s", port)
 	if err := http.ListenAndServe(":"+port, nil); err != nil {
 		log.Fatal("Server error:", err)
 	}

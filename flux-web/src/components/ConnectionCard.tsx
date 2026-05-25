@@ -19,6 +19,7 @@ interface Props {
   disconnect: () => void;
   mode: "send" | "receive";
   goBack: () => void;
+  connectionStatus?: string;
 }
 
 export function ConnectionCard({
@@ -29,6 +30,7 @@ export function ConnectionCard({
   disconnect,
   mode,
   goBack,
+  connectionStatus,
 }: Props) {
   const isConnected = connectionState === "connected";
   const isConnecting = connectionState === "connecting";
@@ -150,6 +152,11 @@ export function ConnectionCard({
           {connectionState}
         </span>
       </div>
+      {connectionStatus && (
+        <p style={{ fontSize: "12px", color: "#6b7280", textAlign: "center" }}>
+          {connectionStatus}
+        </p>
+      )}
 
       {/* Input */}
       {!isConnected && (
