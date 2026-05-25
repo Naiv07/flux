@@ -255,18 +255,12 @@ export function useFlux(onMessage?: (e: MessageEvent) => void) {
 
       pc.oniceconnectionstatechange = () => {
         log(`ICE: ${pc.iceConnectionState}`);
-        if (pc.iceConnectionState === "connected" ||
-            pc.iceConnectionState === "completed") {
-          if (webrtcTimeoutRef.current) {
-            clearTimeout(webrtcTimeoutRef.current);
-          }
-        }
-        if (pc.iceConnectionState === "failed") {
-          log("ICE failed — trying WebSocket relay");
-          startWSRelay(code);
-        }
-        if (pc.iceConnectionState === "disconnected") {
-          setConnectionStatus("Connection interrupted...");
+        if (
+          pc.iceConnectionState === "failed" ||
+          pc.iceConnectionState === "disconnected"
+        ) {
+          log("ICE failed — falling back to relay");
+          setTimeout(() => startWSRelay(code), 500);
         }
       };
 
@@ -274,7 +268,7 @@ export function useFlux(onMessage?: (e: MessageEvent) => void) {
         log(`Connection: ${pc.connectionState}`);
         if (pc.connectionState === "failed") {
           log("WebRTC failed — falling back to relay");
-          startWSRelay(code);
+          setTimeout(() => startWSRelay(code), 500);
         }
       };
 
@@ -302,10 +296,12 @@ export function useFlux(onMessage?: (e: MessageEvent) => void) {
 
       // WebRTC timeout — after 20s fall back to WS relay
       webrtcTimeoutRef.current = setTimeout(() => {
+        const iceState = pcRef.current?.iceConnectionState;
+        const connState = pcRef.current?.connectionState;
         if (
-          pcRef.current?.connectionState !== "connected" &&
-          pcRef.current?.iceConnectionState !== "connected" &&
-          pcRef.current?.iceConnectionState !== "completed"
+          connState !== "connected" &&
+          iceState !== "connected" &&
+          iceState !== "completed"
         ) {
           log("WebRTC timeout — switching to WebSocket relay");
           startWSRelay(code);
