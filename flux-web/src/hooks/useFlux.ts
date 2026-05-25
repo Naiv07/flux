@@ -333,17 +333,44 @@ export function useFlux(onMessage?: (e: MessageEvent) => void) {
 
         // Handle relay ready
         if (msg.type === "relay-start") {
-          log("Peer switching to relay mode");
-          if (!wsRelayRef.current) {
-            startWSRelay(code);
-          }
+          log("Peer switching to relay — joining relay");
+          const ws = wsRef.current;
+          if (!ws || wsRelayRef.current) return;
+
+          // Set up relay without sending another relay-request
+          webrtcFailedRef.current = true;
+          pcRef.current?.close();
+          pcRef.current = null;
+
+          const relay = new WSRelay(ws, code);
+          wsRelayRef.current = relay;
+          channelRef.current = relay as unknown as RTCDataChannel;
+
+          relay.onmessage = (e) => {
+            if (onMessage) onMessage(e);
+          };
+
+          // Immediately signal ready
+          ws.send(JSON.stringify({
+            type: "relay-request",
+            roomCode: code,
+          }));
+
+          relay.setOpen();
+          log("WebSocket relay connected!");
+          setConnectionState("connected");
+          setConnectionPath("ws-relay");
+          setConnectionStatus("Connected via relay");
           return;
         }
 
         if (msg.type === "relay-ready") {
           log(`Relay ready — both ready: ${msg.bothReady}`);
-          if (wsRelayRef.current) {
+          if (wsRelayRef.current && wsRelayRef.current.readyState !== "open") {
             wsRelayRef.current.setOpen();
+            setConnectionState("connected");
+            setConnectionPath("ws-relay");
+            setConnectionStatus("Connected via relay");
           }
           return;
         }
