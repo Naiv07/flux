@@ -388,7 +388,7 @@ export function useFlux(onMessage?: (e: MessageEvent) => void) {
         }
       };
 
-      ws.onerror = (e) => {
+      ws.onerror = () => {
         log("WebSocket error");
         setConnectionStatus("Server connection error");
         setConnectionState("disconnected");
