@@ -7,7 +7,7 @@ interface Props {
 }
 
 export function DiscoverCard({ onConnect, signalingUrl }: Props) {
-  const [rooms, setRooms] = useState<string[]>([]);
+  const [rooms, setRooms] = useState<{ code: string; age: number }[]>([]);
   const [scanning, setScanning] = useState(false);
 
   const scan = useCallback(() => {
@@ -21,7 +21,7 @@ export function DiscoverCard({ onConnect, signalingUrl }: Props) {
     ws.onmessage = (e) => {
       const msg = JSON.parse(e.data);
       if (msg.type === "available-rooms") {
-        setRooms(msg.rooms);
+        setRooms(msg.rooms || []);
         setScanning(false);
         ws.close();
       }
@@ -100,15 +100,10 @@ export function DiscoverCard({ onConnect, signalingUrl }: Props) {
           </p>
         )}
 
-        {rooms.map((code) => (
+        {rooms.map((room) => (
           <motion.button
-            key={code}
-            initial={{ opacity: 0, x: -10 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: 10 }}
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={() => onConnect(code)}
+            key={room.code}
+            onClick={() => onConnect(room.code)}
             style={{
               background: "rgba(0,212,255,0.08)",
               border: "1px solid rgba(0,212,255,0.2)",
@@ -139,7 +134,7 @@ export function DiscoverCard({ onConnect, signalingUrl }: Props) {
               fontFamily: "monospace",
               letterSpacing: "2px",
             }}>
-              {code}
+              {room.code}
             </span>
           </motion.button>
         ))}
