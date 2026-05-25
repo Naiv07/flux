@@ -20,6 +20,7 @@ const ICE_SERVERS: RTCConfiguration = {
     },
   ],
   iceCandidatePoolSize: 10,
+  iceTransportPolicy: "all",
 };
 
 // WebSocket relay channel — wraps WS into DataChannel-like interface
@@ -246,10 +247,8 @@ export function useFlux(onMessage?: (e: MessageEvent) => void) {
 
       pc.onicegatheringstatechange = () => {
         log(`ICE gathering: ${pc.iceGatheringState}`);
-        if (pc.iceGatheringState === "gathering") {
-          setConnectionStatus("Finding connection path...");
-        }
         if (pc.iceGatheringState === "complete") {
+          log("ICE gathering complete");
           setConnectionStatus("Trying to connect...");
         }
       };
@@ -301,13 +300,17 @@ export function useFlux(onMessage?: (e: MessageEvent) => void) {
       const ws = new WebSocket(SIGNALING_SERVER);
       wsRef.current = ws;
 
-      // WebRTC timeout — after 15s fall back to WS relay
+      // WebRTC timeout — after 20s fall back to WS relay
       webrtcTimeoutRef.current = setTimeout(() => {
-        if (connectionState !== "connected") {
+        if (
+          pcRef.current?.connectionState !== "connected" &&
+          pcRef.current?.iceConnectionState !== "connected" &&
+          pcRef.current?.iceConnectionState !== "completed"
+        ) {
           log("WebRTC timeout — switching to WebSocket relay");
           startWSRelay(code);
         }
-      }, 15000);
+      }, 20000);
 
       ws.onopen = () => {
         log("Signaling server connected");

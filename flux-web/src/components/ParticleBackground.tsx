@@ -5,6 +5,7 @@ import * as THREE from "three";
 
 function Particles({ connected }: { connected: boolean }) {
   const meshRef = useRef<THREE.Points>(null);
+  const elapsedRef = useRef(0);
   const count = 6000;
 
   // Create a soft circular dot texture
@@ -84,13 +85,14 @@ function Particles({ connected }: { connected: boolean }) {
     return [positions, colors];
   }, []);
 
-  useFrame((state, delta) => {
+  useFrame((_state, delta) => {
     if (!meshRef.current) return;
 
+    elapsedRef.current += delta;
     meshRef.current.rotation.y += delta * (connected ? 0.1 : 0.05);
 
     const material = meshRef.current.material as THREE.PointsMaterial;
-    const pulse = Math.sin(state.clock.elapsedTime * 1.5) * 0.02;
+    const pulse = Math.sin(elapsedRef.current * 1.5) * 0.02;
     material.size = 0.1 + pulse; // gentle breathing around 0.1
   });
 
