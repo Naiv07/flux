@@ -242,32 +242,24 @@ func handleConnection(w http.ResponseWriter, r *http.Request) {
 
 		// ── WebSocket relay mode ─────────────────────────────────────────────
 		case "relay-request":
-			// Client wants to switch to relay mode
 			if client.roomCode != "" {
 				client.isRelay = true
 				room := hub.getOrCreateRoom(client.roomCode)
 				log.Printf("Relay requested in room %s", client.roomCode)
 
-				// Check if other peer is also in relay mode
-				room.mu.Lock()
-				otherRelay := false
-				for _, c := range room.clients {
-					if c != client && c.isRelay {
-						otherRelay = true
-					}
-				}
-				room.mu.Unlock()
+				peerCount := room.count()
 
 				// Notify other peer to switch to relay
-				relayMsg, _ := json.Marshal(map[string]string{
-					"type": "relay-start",
+				relayMsg, _ := json.Marshal(map[string]interface{}{
+					"type":  "relay-start",
+					"peers": peerCount,
 				})
 				room.broadcast(client, relayMsg)
 
-				// Confirm relay to this client
+				// Confirm relay to this client with peer count
 				confirmMsg, _ := json.Marshal(map[string]interface{}{
-					"type":       "relay-ready",
-					"bothReady":  otherRelay,
+					"type":  "relay-ready",
+					"peers": peerCount,
 				})
 				client.send <- confirmMsg
 			}

@@ -173,7 +173,7 @@ export function useFlux(onMessage?: (e: MessageEvent) => void) {
     }
 
     log("Starting WebSocket relay");
-    setConnectionStatus("Connecting via relay...");
+    setConnectionStatus("Relay ready — waiting for peer...");
     webrtcFailedRef.current = true;
 
     pcRef.current?.close();
@@ -187,12 +187,8 @@ export function useFlux(onMessage?: (e: MessageEvent) => void) {
       if (onMessage) onMessage(e);
     };
 
-    // Open immediately — data relays through server
-    relay.setOpen();
-    setConnectionState("connected");
-    setConnectionPath("ws-relay");
-    setConnectionStatus("Connected via relay");
-    log("WebSocket relay connected!");
+    // Request relay from server — it tells us peer count
+    ws.send(JSON.stringify({ type: "relay-request", roomCode: code }));
   }, [log, onMessage]);
 
   const setupDataChannel = useCallback(
@@ -316,42 +312,32 @@ export function useFlux(onMessage?: (e: MessageEvent) => void) {
 
         // Handle relay ready
         if (msg.type === "relay-start") {
-          log("Received relay-start — switching to relay");
-          if (relayStartedRef.current) return;
-          relayStartedRef.current = true;
-
-          const currentWs = wsRef.current;
-          if (!currentWs || currentWs.readyState !== WebSocket.OPEN) return;
-
-          webrtcFailedRef.current = true;
-          pcRef.current?.close();
-          pcRef.current = null;
-
-          const relay = new WSRelay(currentWs, code);
-          wsRelayRef.current = relay;
-          channelRef.current = relay as unknown as RTCDataChannel;
-
-          relay.onmessage = (e) => {
-            if (onMessage) onMessage(e);
-          };
-
-          // Tell server we're joining relay
-          currentWs.send(JSON.stringify({
-            type: "relay-request",
-            roomCode: code,
-          }));
-
-          // Don't wait for bothReady — open immediately
-          relay.setOpen();
-          log("WebSocket relay connected!");
-          setConnectionState("connected");
-          setConnectionPath("ws-relay");
-          setConnectionStatus("Connected via relay");
+          log(`Relay start — peers: ${msg.peers}`);
+          if (!wsRelayRef.current) {
+            startWSRelay(code);
+          }
+          // If both peers present, mark connected
+          if (msg.peers >= 2 && wsRelayRef.current) {
+            wsRelayRef.current.setOpen();
+            setConnectionState("connected");
+            setConnectionPath("ws-relay");
+            setConnectionStatus("Connected via relay");
+            log("Relay connected — both peers present!");
+          }
           return;
         }
 
         if (msg.type === "relay-ready") {
-          log("Relay ready acknowledged");
+          log(`Relay ready — peers: ${msg.peers}`);
+          if (msg.peers >= 2 && wsRelayRef.current) {
+            wsRelayRef.current.setOpen();
+            setConnectionState("connected");
+            setConnectionPath("ws-relay");
+            setConnectionStatus("Connected via relay");
+            log("Relay connected — both peers present!");
+          } else {
+            setConnectionStatus("Relay ready — waiting for peer...");
+          }
           return;
         }
 

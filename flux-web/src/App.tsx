@@ -28,6 +28,7 @@ function App() {
   const onMessageRef = useRef<((e: MessageEvent) => void) | null>(null);
 
   const handleSetMode = (selectedMode: "send" | "receive") => {
+    if (connectionState === "connecting" || connectionState === "connected") return;
     setMode(selectedMode);
     if (selectedMode === "send") {
       const code = generateRoomCode();
