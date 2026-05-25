@@ -163,47 +163,36 @@ export function useFlux(onMessage?: (e: MessageEvent) => void) {
   // ── WebSocket Relay Fallback ───────────────────────────────────────────────
   const startWSRelay = useCallback((code: string) => {
     const ws = wsRef.current;
-    if (!ws) {
-      log("No WebSocket — cannot start relay");
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+      log("WebSocket not available for relay");
       return;
     }
-    if (ws.readyState !== WebSocket.OPEN) {
-      log("WebSocket closed — cannot start relay");
-      setConnectionState("idle");
+    if (wsRelayRef.current) {
+      log("Relay already active");
       return;
     }
 
-    log("WebRTC failed — switching to WebSocket relay");
-    setConnectionStatus("Switching to relay mode...");
+    log("Starting WebSocket relay");
+    setConnectionStatus("Connecting via relay...");
     webrtcFailedRef.current = true;
 
-    // Close WebRTC
     pcRef.current?.close();
     pcRef.current = null;
 
-    // Create relay wrapper
     const relay = new WSRelay(ws, code);
     wsRelayRef.current = relay;
-    channelRef.current = relay;
-
-    // Request relay from server
-    ws.send(JSON.stringify({ type: "relay-request", roomCode: code }));
-
-    // Set up relay message handler
-    relay.onopen = () => {
-      log("WebSocket relay connected!");
-      setConnectionState("connected");
-      setConnectionPath("ws-relay");
-      setConnectionStatus("Connected via relay");
-      if (webrtcTimeoutRef.current) {
-        clearTimeout(webrtcTimeoutRef.current);
-      }
-    };
+    channelRef.current = relay as unknown as RTCDataChannel;
 
     relay.onmessage = (e) => {
       if (onMessage) onMessage(e);
     };
 
+    // Open immediately — data relays through server
+    relay.setOpen();
+    setConnectionState("connected");
+    setConnectionPath("ws-relay");
+    setConnectionStatus("Connected via relay");
+    log("WebSocket relay connected!");
   }, [log, onMessage]);
 
   const setupDataChannel = useCallback(
@@ -265,27 +254,10 @@ export function useFlux(onMessage?: (e: MessageEvent) => void) {
 
       pc.oniceconnectionstatechange = () => {
         log(`ICE: ${pc.iceConnectionState}`);
-        if (
-          pc.iceConnectionState === "failed" ||
-          pc.iceConnectionState === "disconnected"
-        ) {
-          log("ICE failed — falling back to relay");
-          if (!relayStartedRef.current) {
-            relayStartedRef.current = true;
-            setTimeout(() => startWSRelay(code), 300);
-          }
-        }
       };
 
       pc.onconnectionstatechange = () => {
         log(`Connection: ${pc.connectionState}`);
-        if (pc.connectionState === "failed") {
-          log("WebRTC failed — falling back to relay");
-          if (!relayStartedRef.current) {
-            relayStartedRef.current = true;
-            setTimeout(() => startWSRelay(code), 300);
-          }
-        }
       };
 
       pc.ondatachannel = (e) => {
@@ -310,21 +282,14 @@ export function useFlux(onMessage?: (e: MessageEvent) => void) {
       const ws = new WebSocket(SIGNALING_SERVER);
       wsRef.current = ws;
 
-      // WebRTC timeout — after 20s fall back to WS relay
+      // WebRTC timeout — after 8s fall back to WS relay
       webrtcTimeoutRef.current = setTimeout(() => {
-        const iceState = pcRef.current?.iceConnectionState;
-        const connState = pcRef.current?.connectionState;
-        if (
-          connState !== "connected" &&
-          iceState !== "connected" &&
-          iceState !== "completed"
-        ) {
-          if (!relayStartedRef.current) {
-            relayStartedRef.current = true;
-            startWSRelay(code);
-          }
+        const ice = pcRef.current?.iceConnectionState;
+        if (ice !== "connected" && ice !== "completed") {
+          log("WebRTC didn't connect — using relay");
+          startWSRelay(code);
         }
-      }, 20000);
+      }, 8000);
 
       ws.onopen = () => {
         log("Signaling server connected");
