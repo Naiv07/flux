@@ -351,16 +351,18 @@ export function useFlux(onMessage?: (e: MessageEvent) => void) {
 
         // Handle relay ready
         if (msg.type === "relay-start") {
-          log("Peer switching to relay — joining relay");
-          const ws = wsRef.current;
-          if (!ws || wsRelayRef.current) return;
+          log("Received relay-start — switching to relay");
+          if (relayStartedRef.current) return;
+          relayStartedRef.current = true;
 
-          // Set up relay without sending another relay-request
+          const currentWs = wsRef.current;
+          if (!currentWs || currentWs.readyState !== WebSocket.OPEN) return;
+
           webrtcFailedRef.current = true;
           pcRef.current?.close();
           pcRef.current = null;
 
-          const relay = new WSRelay(ws, code);
+          const relay = new WSRelay(currentWs, code);
           wsRelayRef.current = relay;
           channelRef.current = relay as unknown as RTCDataChannel;
 
@@ -368,12 +370,13 @@ export function useFlux(onMessage?: (e: MessageEvent) => void) {
             if (onMessage) onMessage(e);
           };
 
-          // Immediately signal ready
-          ws.send(JSON.stringify({
+          // Tell server we're joining relay
+          currentWs.send(JSON.stringify({
             type: "relay-request",
             roomCode: code,
           }));
 
+          // Don't wait for bothReady — open immediately
           relay.setOpen();
           log("WebSocket relay connected!");
           setConnectionState("connected");
@@ -383,13 +386,7 @@ export function useFlux(onMessage?: (e: MessageEvent) => void) {
         }
 
         if (msg.type === "relay-ready") {
-          log(`Relay ready — both ready: ${msg.bothReady}`);
-          if (wsRelayRef.current && wsRelayRef.current.readyState !== "open") {
-            wsRelayRef.current.setOpen();
-            setConnectionState("connected");
-            setConnectionPath("ws-relay");
-            setConnectionStatus("Connected via relay");
-          }
+          log("Relay ready acknowledged");
           return;
         }
 
