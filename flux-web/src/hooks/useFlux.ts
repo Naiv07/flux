@@ -31,18 +31,42 @@ class WSRelay {
   public onopen: (() => void) | null = null;
   public onclose: (() => void) | null = null;
   public readyState: string = "connecting";
+  public bufferedAmount: number = 0;
+  public bufferedAmountLowThreshold: number = 0;
+  public onbufferedamountlow: (() => void) | null = null;
 
   constructor(ws: WebSocket, roomCode: string) {
     this.ws = ws;
     this.roomCode = roomCode;
   }
 
-  send(data: string) {
-    if (this.ws.readyState === WebSocket.OPEN) {
+  send(data: string | ArrayBuffer) {
+    if (this.ws.readyState !== WebSocket.OPEN) return;
+
+    if (typeof data === "string") {
       this.ws.send(JSON.stringify({
         type: "relay-data",
         roomCode: this.roomCode,
+        dataType: "string",
         data: data,
+      }));
+    } else {
+      // Binary — convert to base64
+      const bytes = new Uint8Array(data);
+      let binary = "";
+      const chunkSize = 8192;
+      for (let i = 0; i < bytes.length; i += chunkSize) {
+        binary += String.fromCharCode.apply(
+          null,
+          Array.from(bytes.subarray(i, i + chunkSize))
+        );
+      }
+      const base64 = btoa(binary);
+      this.ws.send(JSON.stringify({
+        type: "relay-data",
+        roomCode: this.roomCode,
+        dataType: "binary",
+        data: base64,
       }));
     }
   }
@@ -52,8 +76,18 @@ class WSRelay {
     if (this.onclose) this.onclose();
   }
 
-  handleRelayData(data: string) {
-    if (this.onmessage) {
+  handleRelayData(dataType: string, data: string) {
+    if (!this.onmessage) return;
+
+    if (dataType === "binary") {
+      // Decode base64 back to ArrayBuffer
+      const binary = atob(data);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) {
+        bytes[i] = binary.charCodeAt(i);
+      }
+      this.onmessage(new MessageEvent("message", { data: bytes.buffer }));
+    } else {
       this.onmessage(new MessageEvent("message", { data }));
     }
   }
@@ -306,7 +340,7 @@ export function useFlux(onMessage?: (e: MessageEvent) => void) {
 
         // Handle relay data
         if (msg.type === "relay-data" && wsRelayRef.current) {
-          wsRelayRef.current.handleRelayData(msg.data);
+          wsRelayRef.current.handleRelayData(msg.dataType ?? "string", msg.data);
           return;
         }
 

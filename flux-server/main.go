@@ -13,8 +13,8 @@ import (
 
 var upgrader = websocket.Upgrader{
 	CheckOrigin:     func(r *http.Request) bool { return true },
-	ReadBufferSize:  65536,
-	WriteBufferSize: 65536,
+	ReadBufferSize:  1024 * 1024, // 1MB
+	WriteBufferSize: 1024 * 1024, // 1MB
 }
 
 type Client struct {
@@ -134,6 +134,7 @@ func handleConnection(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	conn.SetReadLimit(2 * 1024 * 1024) // 2MB max message
 	conn.SetReadDeadline(time.Now().Add(120 * time.Second))
 	conn.SetPongHandler(func(string) error {
 		conn.SetReadDeadline(time.Now().Add(120 * time.Second))

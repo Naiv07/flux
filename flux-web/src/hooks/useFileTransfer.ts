@@ -4,7 +4,7 @@ import {
   generateTransferId,
 } from "../lib/transferStore";
 
-const CHUNK_SIZE = 256 * 1024; // 256KB chunks
+const CHUNK_SIZE = 64 * 1024; // 64KB chunks (works for both WebRTC and relay)
 
 export type TransferStatus =
   | "idle"
