@@ -106,6 +106,7 @@ export function useFlux(onMessage?: (e: MessageEvent) => void) {
   const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
   const [connectionPath, setConnectionPath] = useState<"local" | "internet" | "relay" | "ws-relay" | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<string>("");
+  const [activeChannel, setActiveChannel] = useState<RTCDataChannel | null>(null);
 
   const wsRef = useRef<WebSocket | null>(null);
   const pcRef = useRef<RTCPeerConnection | null>(null);
@@ -143,6 +144,7 @@ export function useFlux(onMessage?: (e: MessageEvent) => void) {
     remoteDescSet.current = false;
     webrtcFailedRef.current = false;
     relayStartedRef.current = false;
+    setActiveChannel(null);
   }, []);
 
   const stopScreenShare = useCallback(() => {
@@ -216,6 +218,7 @@ export function useFlux(onMessage?: (e: MessageEvent) => void) {
     const relay = new WSRelay(ws, code);
     wsRelayRef.current = relay;
     channelRef.current = relay as unknown as RTCDataChannel;
+    setActiveChannel(relay as unknown as RTCDataChannel);
 
     relay.onmessage = (e) => {
       if (onMessage) onMessage(e);
@@ -227,10 +230,17 @@ export function useFlux(onMessage?: (e: MessageEvent) => void) {
 
   const setupDataChannel = useCallback(
     (channel: RTCDataChannel) => {
+      // Don't override relay if we've already switched
+      if (webrtcFailedRef.current) {
+        log("Ignoring WebRTC channel — relay active");
+        return;
+      }
       channelRef.current = channel;
 
       channel.onopen = () => {
         log("WebRTC DataChannel open!");
+        channelRef.current = channel;
+        setActiveChannel(channel);
         setConnectionState("connected");
         setConnectionStatus("Connected");
         if (webrtcTimeoutRef.current) {
@@ -353,6 +363,7 @@ export function useFlux(onMessage?: (e: MessageEvent) => void) {
           // If both peers present, mark connected
           if (msg.peers >= 2 && wsRelayRef.current) {
             wsRelayRef.current.setOpen();
+            setActiveChannel(wsRelayRef.current as unknown as RTCDataChannel);
             setConnectionState("connected");
             setConnectionPath("ws-relay");
             setConnectionStatus("Connected via relay");
@@ -365,6 +376,7 @@ export function useFlux(onMessage?: (e: MessageEvent) => void) {
           log(`Relay ready — peers: ${msg.peers}`);
           if (msg.peers >= 2 && wsRelayRef.current) {
             wsRelayRef.current.setOpen();
+            setActiveChannel(wsRelayRef.current as unknown as RTCDataChannel);
             setConnectionState("connected");
             setConnectionPath("ws-relay");
             setConnectionStatus("Connected via relay");
@@ -525,7 +537,7 @@ export function useFlux(onMessage?: (e: MessageEvent) => void) {
     connect,
     sendMessage,
     logs,
-    channel: channelRef.current as RTCDataChannel | null,
+    channel: activeChannel,
     disconnect,
     startScreenShare,
     stopScreenShare,
