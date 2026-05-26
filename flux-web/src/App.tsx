@@ -137,11 +137,11 @@ function App() {
 
   return (
     <div style={{
-      minHeight: "100vh",
+      minHeight: "100dvh",
       display: "flex",
       flexDirection: "column",
-      alignItems: "center",      // centers horizontally
-      justifyContent: "center",  // centers vertically
+      alignItems: "center",
+      justifyContent: "center",
       padding: "24px",
       gap: "16px",
       position: "relative",
@@ -159,54 +159,33 @@ function App() {
         alignItems: "center",
         gap: "16px",
         margin: "0 auto",
+        transition: "max-width 0.4s ease",
       }}>
         <NetworkBanner fileSize={progress.fileSize} />
 
         {!mode && <ModeSelectCard setMode={handleSetMode} />}
 
-        {mode && !isConnected && (
-  <>
-            <ConnectionCard
-              connectionStatus={connectionStatus}
-              connectionState={connectionState}
-              roomCode={roomCode}
-              setRoomCode={setRoomCode}
-              connect={connect}
-              disconnect={handleDisconnect}
-              mode={mode}
-              goBack={handleBack}
-            />
-
-            {mode === "receive" && (
-              <DiscoverCard
-                onConnect={(code) => {
-                  setRoomCode(code);
-                  connect(code);
-                }}
-                signalingUrl={SIGNALING_SERVER_URL}
-              />
-            )}
-          </>
-        )}
-
-        {/* Connected — show cards side by side on desktop */}
-        {isConnected && mode && (
+        {/* Single unified block — ConnectionCard never remounts when connecting */}
+        {mode && (
           <div style={{
             display: "grid",
-            gridTemplateColumns: isMobileView
-              ? "1fr"
-              : "repeat(auto-fit, minmax(380px, 1fr))",
+            gridTemplateColumns: !isMobileView && isConnected
+              ? "repeat(auto-fit, minmax(380px, 1fr))"
+              : "1fr",
             gap: "16px",
             width: "100%",
             maxWidth: "100%",
             alignItems: "start",
           }}>
-            <div style={{ gridColumn: "1 / -1" }}>
-              <PathBadge path={connectionPath} />
-            </div>
+            {isConnected && (
+              <div style={{ gridColumn: "1 / -1" }}>
+                <PathBadge path={connectionPath} />
+              </div>
+            )}
+
             <ConnectionCard
-              connectionState={connectionState}
               connectionStatus={connectionStatus}
+              connectionState={connectionState}
               roomCode={roomCode}
               setRoomCode={setRoomCode}
               connect={connect}
@@ -215,15 +194,28 @@ function App() {
               goBack={handleBack}
             />
 
-            <TransferCard
-              progress={progress}
-              sendFile={sendFile}
-              formatBytes={formatBytes}
-              pauseTransfer={pauseTransfer}
-              resumeTransfer={resumeTransfer}
-              cancelTransfer={cancelTransfer}
-            />
+            {!isConnected && mode === "receive" && (
+              <div style={{ gridColumn: "1 / -1" }}>
+                <DiscoverCard
+                  onConnect={(code) => {
+                    setRoomCode(code);
+                    connect(code);
+                  }}
+                  signalingUrl={SIGNALING_SERVER_URL}
+                />
+              </div>
+            )}
 
+            {isConnected && (
+              <TransferCard
+                progress={progress}
+                sendFile={sendFile}
+                formatBytes={formatBytes}
+                pauseTransfer={pauseTransfer}
+                resumeTransfer={resumeTransfer}
+                cancelTransfer={cancelTransfer}
+              />
+            )}
           </div>
         )}
       </div>
