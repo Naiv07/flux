@@ -192,6 +192,7 @@ function App() {
               : "repeat(auto-fit, minmax(380px, 1fr))",
             gap: "16px",
             width: "100%",
+            maxWidth: "100%",
           }}>
             <div style={{ gridColumn: "1 / -1" }}>
               <PathBadge path={connectionPath} />

@@ -49,6 +49,8 @@ export function ConnectionCard({
         padding: "32px",
         width: "100%",
         maxWidth: "100%",
+        boxSizing: "border-box",
+        overflow: "hidden",
         display: "flex",
         flexDirection: "column",
         gap: "24px",
@@ -153,7 +155,7 @@ export function ConnectionCard({
         </span>
       </div>
       {connectionStatus && (
-        <p style={{ fontSize: "12px", color: "#6b7280", textAlign: "center" }}>
+        <p style={{ fontSize: "12px", color: "#6b7280", textAlign: "center", width: "100%" }}>
           {connectionStatus}
         </p>
       )}
@@ -263,9 +265,15 @@ export function ConnectionCard({
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          style={{ display: "flex", flexDirection: "column", gap: "12px" }}
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            width: "100%",
+            gap: "12px",
+          }}
         >
-          <div style={{ textAlign: "center" }}>
+          <div style={{ textAlign: "center", width: "100%", boxSizing: "border-box" }}>
             <p style={{ fontSize: "12px", color: "#6b7280" }}>
               Connected to room
             </p>

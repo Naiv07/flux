@@ -19,6 +19,8 @@ export function ModeSelectCard({ setMode }: Props) {
         borderRadius: "28px",
         padding: "32px 24px",
         width: "100%",
+        maxWidth: "100%",
+        boxSizing: "border-box",
         display: "flex",
         flexDirection: "column",
         gap: "20px",
