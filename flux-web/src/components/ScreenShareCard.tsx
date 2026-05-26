@@ -1,4 +1,4 @@
-import { useRef, useState, useEffect, useCallback } from "react";
+import { useRef, useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Monitor, MonitorPlay } from "@phosphor-icons/react";
 
@@ -6,31 +6,27 @@ interface Props {
   startScreenShare: () => Promise<MediaStream | null>;
   stopScreenShare: () => void;
   remoteStream: MediaStream | null;
+  isMobile: boolean;
 }
 
 export function ScreenShareCard({
   startScreenShare,
   stopScreenShare,
   remoteStream,
+  isMobile,
 }: Props) {
   const [isSharing, setIsSharing] = useState(false);
+  const [needsPlay, setNeedsPlay] = useState(false);
   const localVideoRef  = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
 
-  // Use callback ref instead of useEffect
-  const setRemoteVideo = useCallback((node: HTMLVideoElement | null) => {
-    if (node && remoteStream) {
-      node.srcObject = remoteStream;
-      node.play().catch(() => { });
-    }
-  }, [remoteStream]);
-
-  // Also update when remoteStream changes
   useEffect(() => {
-    if (remoteVideoRef.current && remoteStream) {
-      remoteVideoRef.current.srcObject = remoteStream;
-      remoteVideoRef.current.play().catch(() => { });
-    }
+    const video = remoteVideoRef.current;
+    if (!video || !remoteStream) return;
+    video.srcObject = remoteStream;
+    video.play().catch(() => {
+      setNeedsPlay(true); // autoplay blocked — show play button
+    });
   }, [remoteStream]);
 
   const handleStart = async () => {
@@ -64,6 +60,7 @@ export function ScreenShareCard({
         width: "100%",
         maxWidth: "100%",
         boxSizing: "border-box",
+        alignSelf: "start",
         display: "flex",
         flexDirection: "column",
         gap: "20px",
@@ -89,7 +86,6 @@ export function ScreenShareCard({
             borderRadius: "12px",
             overflow: "hidden",
             border: "1px solid rgba(137,207,240,0.3)",
-            boxShadow: "0 0 20px rgba(137,207,240,0.1)",
           }}
         >
           <p style={{
@@ -101,10 +97,7 @@ export function ScreenShareCard({
             Receiving screen
           </p>
           <video
-            ref={(node) => {
-              remoteVideoRef.current = node!;
-              setRemoteVideo(node);
-            }}
+            ref={remoteVideoRef}
             autoPlay
             playsInline
             muted={false}
@@ -117,6 +110,27 @@ export function ScreenShareCard({
               background: "#000",
             }}
           />
+          {needsPlay && (
+            <motion.button
+              whileTap={{ scale: 0.97 }}
+              onClick={() => {
+                remoteVideoRef.current?.play();
+                setNeedsPlay(false);
+              }}
+              style={{
+                width: "100%",
+                padding: "12px",
+                background: "rgba(137,207,240,0.1)",
+                border: "none",
+                color: "#89CFF0",
+                fontSize: "14px",
+                fontWeight: "600",
+                cursor: "pointer",
+              }}
+            >
+              ▶ Tap to Play
+            </motion.button>
+          )}
         </motion.div>
       )}
 
@@ -149,43 +163,57 @@ export function ScreenShareCard({
         </motion.div>
       )}
 
-      {/* Start / Stop button */}
-      <motion.button
-        whileHover={{ scale: 1.02 }}
-        whileTap={{ scale: 0.98 }}
-        onClick={isSharing ? handleStop : handleStart}
-        style={{
-          background: isSharing
-            ? "rgba(255,59,59,0.1)"
-            : "rgba(108,99,255,0.15)",
-          border: isSharing
-            ? "1px solid rgba(255,59,59,0.2)"
-            : "1px solid rgba(108,99,255,0.3)",
-          borderRadius: "12px",
-          padding: "12px",
-          fontSize: "14px",
-          fontWeight: "600",
-          color: isSharing ? "#ff6b6b" : "#6c63ff",
-          cursor: "pointer",
-          width: "100%",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          gap: "8px",
-        }}
-      >
-        {isSharing ? (
-          <>
-            <MonitorPlay size={16} weight="bold" />
-            Stop Sharing
-          </>
-        ) : (
-          <>
-            <Monitor size={16} weight="bold" />
-            Share Screen
-          </>
-        )}
-      </motion.button>
+      {/* Only show share button on desktop */}
+      {!isMobile && (
+        <motion.button
+          whileHover={{ scale: 1.02 }}
+          whileTap={{ scale: 0.98 }}
+          onClick={isSharing ? handleStop : handleStart}
+          style={{
+            background: isSharing
+              ? "rgba(255,59,59,0.1)"
+              : "rgba(108,99,255,0.15)",
+            border: isSharing
+              ? "1px solid rgba(255,59,59,0.2)"
+              : "1px solid rgba(108,99,255,0.3)",
+            borderRadius: "12px",
+            padding: "12px",
+            fontSize: "14px",
+            fontWeight: "600",
+            color: isSharing ? "#ff6b6b" : "#6c63ff",
+            cursor: "pointer",
+            width: "100%",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: "8px",
+          }}
+        >
+          {isSharing ? (
+            <>
+              <MonitorPlay size={16} weight="bold" />
+              Stop Sharing
+            </>
+          ) : (
+            <>
+              <Monitor size={16} weight="bold" />
+              Share Screen
+            </>
+          )}
+        </motion.button>
+      )}
+
+      {/* Show message on mobile */}
+      {isMobile && !remoteStream && (
+        <p style={{
+          fontSize: "12px",
+          color: "#6b7280",
+          textAlign: "center",
+          padding: "12px 0",
+        }}>
+          Screen sharing is only available on desktop
+        </p>
+      )}
     </motion.div>
   );
 }

@@ -51,6 +51,7 @@ export function ConnectionCard({
         maxWidth: "100%",
         boxSizing: "border-box",
         overflow: "hidden",
+        alignSelf: "start",
         display: "flex",
         flexDirection: "column",
         gap: "24px",

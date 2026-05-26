@@ -61,6 +61,7 @@ export function TransferCard({
         width: "100%",
         maxWidth: "100%",
         boxSizing: "border-box",
+        minHeight: "200px",
         display: "flex",
         flexDirection: "column",
         gap: "20px",

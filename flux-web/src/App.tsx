@@ -193,6 +193,7 @@ function App() {
             gap: "16px",
             width: "100%",
             maxWidth: "100%",
+            alignItems: "start",
           }}>
             <div style={{ gridColumn: "1 / -1" }}>
               <PathBadge path={connectionPath} />
@@ -221,6 +222,7 @@ function App() {
               startScreenShare={startScreenShare}
               stopScreenShare={stopScreenShare}
               remoteStream={remoteStream}
+              isMobile={isMobileView}
             />
           </div>
         )}
