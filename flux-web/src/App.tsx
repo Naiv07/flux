@@ -157,13 +157,12 @@ function App() {
         position: "relative",
         zIndex: 10,
         width: "100%",
-        maxWidth: isMobileView ? "100%" : (isConnected ? "1200px" : "448px"),
+        maxWidth: isMobileView ? "100%" : "900px",
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
         gap: "16px",
         margin: "0 auto",
-        transition: "max-width 0.4s ease",
       }}>
         <NetworkBanner fileSize={progress.fileSize} />
 
@@ -189,16 +188,18 @@ function App() {
               </div>
             )}
 
-            <ConnectionCard
-              connectionStatus={connectionStatus}
-              connectionState={connectionState}
-              roomCode={roomCode}
-              setRoomCode={setRoomCode}
-              connect={connect}
-              disconnect={handleDisconnect}
-              mode={mode}
-              goBack={handleBack}
-            />
+            <div style={!isConnected ? { maxWidth: "448px", width: "100%", margin: "0 auto" } : undefined}>
+              <ConnectionCard
+                connectionStatus={connectionStatus}
+                connectionState={connectionState}
+                roomCode={roomCode}
+                setRoomCode={setRoomCode}
+                connect={connect}
+                disconnect={handleDisconnect}
+                mode={mode}
+                goBack={handleBack}
+              />
+            </div>
 
             {!isConnected && mode === "receive" && (
               <div style={{ gridColumn: "1 / -1" }}>
