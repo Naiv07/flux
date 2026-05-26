@@ -78,6 +78,12 @@ func (h *Hub) getOrCreateRoom(code string) *Room {
 	return room
 }
 
+func (h *Hub) getRoom(code string) *Room {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	return h.rooms[code]
+}
+
 func (h *Hub) removeRoom(code string) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
@@ -149,16 +155,18 @@ func handleConnection(w http.ResponseWriter, r *http.Request) {
 
 	defer func() {
 		if client.roomCode != "" {
-			room := hub.getOrCreateRoom(client.roomCode)
-			room.removeClient(client)
-			leaveMsg, _ := json.Marshal(map[string]string{
-				"type":     "peer-left",
-				"roomCode": client.roomCode,
-			})
-			room.broadcast(client, leaveMsg)
-			if room.count() == 0 {
-				hub.removeRoom(client.roomCode)
-				log.Printf("Room removed: %s", client.roomCode)
+			room := hub.getRoom(client.roomCode)
+			if room != nil {
+				room.removeClient(client)
+				leaveMsg, _ := json.Marshal(map[string]string{
+					"type":     "peer-left",
+					"roomCode": client.roomCode,
+				})
+				room.broadcast(client, leaveMsg)
+				if room.count() == 0 {
+					hub.removeRoom(client.roomCode)
+					log.Printf("Room removed: %s", client.roomCode)
+				}
 			}
 		}
 		close(client.send)
@@ -244,20 +252,22 @@ func handleConnection(w http.ResponseWriter, r *http.Request) {
 		// ── WebSocket relay mode ─────────────────────────────────────────────
 		case "relay-request":
 			if client.roomCode != "" {
-				client.isRelay = true
 				room := hub.getOrCreateRoom(client.roomCode)
-				log.Printf("Relay requested in room %s", client.roomCode)
 
-				peerCount := room.count()
+				// Lock once for the entire operation
+				room.mu.Lock()
+				client.isRelay = true
+				peerCount := len(room.clients)
+				room.mu.Unlock()
 
-				// Notify other peer to switch to relay
+				log.Printf("Relay requested in room %s (peers: %d)", client.roomCode, peerCount)
+
 				relayMsg, _ := json.Marshal(map[string]interface{}{
 					"type":  "relay-start",
 					"peers": peerCount,
 				})
 				room.broadcast(client, relayMsg)
 
-				// Confirm relay to this client with peer count
 				confirmMsg, _ := json.Marshal(map[string]interface{}{
 					"type":  "relay-ready",
 					"peers": peerCount,

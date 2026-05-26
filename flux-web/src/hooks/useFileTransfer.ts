@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   deleteTransfer,
   generateTransferId,
@@ -38,6 +38,7 @@ export function useFileTransfer(channel: RTCDataChannel | null) {
   const transferIdRef = useRef<string>("");
   const pauseRef = useRef(false);
   const cancelRef = useRef(false);
+  const pauseIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const throttleDelayRef = useRef(0);
   const lastSpeedCheckRef = useRef(Date.now());
   const bytesAtLastCheckRef = useRef(0);
@@ -330,9 +331,12 @@ export function useFileTransfer(channel: RTCDataChannel | null) {
               }
 
               if (pauseRef.current) {
-                const checkPause = setInterval(() => {
+                pauseIntervalRef.current = setInterval(() => {
                   if (!pauseRef.current || cancelRef.current) {
-                    clearInterval(checkPause);
+                    if (pauseIntervalRef.current) {
+                      clearInterval(pauseIntervalRef.current);
+                      pauseIntervalRef.current = null;
+                    }
                     if (cancelRef.current) reject(new Error("cancelled"));
                     else sendNextChunk();
                   }
@@ -411,6 +415,14 @@ export function useFileTransfer(channel: RTCDataChannel | null) {
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return `${parseFloat((bytes / Math.pow(k, i)).toFixed(1))} ${sizes[i]}`;
   };
+
+  useEffect(() => {
+    return () => {
+      if (pauseIntervalRef.current) {
+        clearInterval(pauseIntervalRef.current);
+      }
+    };
+  }, []);
 
   return {
     progress,

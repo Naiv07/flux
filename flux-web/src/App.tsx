@@ -25,14 +25,24 @@ function App() {
 
   const [mode, setMode] = useState<"send" | "receive" | null>(null);
   const onMessageRef = useRef<((e: MessageEvent) => void) | null>(null);
+  const isConnectingRef = useRef(false);
 
   const handleSetMode = (selectedMode: "send" | "receive") => {
+    if (isConnectingRef.current) return;
     if (connectionState === "connecting" || connectionState === "connected") return;
+
+    isConnectingRef.current = true;
     setMode(selectedMode);
+
     if (selectedMode === "send") {
       const code = generateRoomCode();
       setRoomCode(code);
-      setTimeout(() => connect(code), 300);
+      setTimeout(() => {
+        connect(code);
+        setTimeout(() => { isConnectingRef.current = false; }, 1000);
+      }, 300);
+    } else {
+      isConnectingRef.current = false;
     }
   };
 

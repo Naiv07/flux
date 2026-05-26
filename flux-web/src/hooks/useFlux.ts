@@ -120,17 +120,26 @@ export function useFlux(onMessage?: (e: MessageEvent) => void) {
   const relayStartedRef = useRef(false);
   const currentCodeRef = useRef("");
   const webrtcTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const keepAliveRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const connectionStateRef = useRef<ConnectionState>("idle");
 
   const log = useCallback((msg: string) => {
     console.log("[Flux]", msg);
     setLogs((prev) => [...prev, `${new Date().toLocaleTimeString()} — ${msg}`]);
   }, []);
 
+  const setConnectionStateSafe = useCallback((state: ConnectionState) => {
+    connectionStateRef.current = state;
+    setConnectionState(state);
+  }, []);
+
   const cleanup = useCallback(() => {
     if (retryTimeoutRef.current) clearTimeout(retryTimeoutRef.current);
     if (webrtcTimeoutRef.current) clearTimeout(webrtcTimeoutRef.current);
+    if (keepAliveRef.current) clearInterval(keepAliveRef.current);
     retryTimeoutRef.current = null;
     webrtcTimeoutRef.current = null;
+    keepAliveRef.current = null;
     channelRef.current?.close();
     pcRef.current?.close();
     wsRef.current?.close();
@@ -190,9 +199,17 @@ export function useFlux(onMessage?: (e: MessageEvent) => void) {
 
   // ── WebSocket Relay Fallback ───────────────────────────────────────────────
   const startWSRelay = useCallback((code: string) => {
+    // Atomic guard — prevent double init
+    if (relayStartedRef.current) {
+      log("Relay already started — ignoring duplicate call");
+      return;
+    }
+    relayStartedRef.current = true;
+
     const ws = wsRef.current;
     if (!ws || ws.readyState !== WebSocket.OPEN) {
       log("WebSocket not available for relay");
+      relayStartedRef.current = false;
       return;
     }
     if (wsRelayRef.current) {
@@ -233,7 +250,7 @@ export function useFlux(onMessage?: (e: MessageEvent) => void) {
         log("WebRTC DataChannel open!");
         channelRef.current = channel;
         setActiveChannel(channel);
-        setConnectionState("connected");
+        setConnectionStateSafe("connected");
         setConnectionStatus("Connected");
         if (webrtcTimeoutRef.current) {
           clearTimeout(webrtcTimeoutRef.current);
@@ -244,7 +261,7 @@ export function useFlux(onMessage?: (e: MessageEvent) => void) {
       channel.onclose = () => {
         log("DataChannel closed");
         if (!webrtcFailedRef.current) {
-          setConnectionState("disconnected");
+          setConnectionStateSafe("disconnected");
         }
       };
 
@@ -302,7 +319,7 @@ export function useFlux(onMessage?: (e: MessageEvent) => void) {
       cleanup();
       currentCodeRef.current = code;
 
-      setConnectionState("connecting");
+      setConnectionStateSafe("connecting");
       setConnectionStatus("Connecting...");
       log(`Connecting to room: ${code}`);
 
@@ -320,11 +337,15 @@ export function useFlux(onMessage?: (e: MessageEvent) => void) {
 
       // Hard give-up timeout — after 30s reset if still not connected
       retryTimeoutRef.current = setTimeout(() => {
-        if (connectionState !== "connected") {
+        if (
+          connectionStateRef.current !== "connected" &&
+          pcRef.current?.connectionState !== "connected" &&
+          pcRef.current?.iceConnectionState !== "connected"
+        ) {
           log("Connection timed out");
-          setConnectionState("idle");
-          setConnectionStatus("Connection timed out");
           cleanup();
+          setConnectionStateSafe("idle");
+          setConnectionStatus("Connection timed out");
         }
       }, 30000);
 
@@ -333,13 +354,12 @@ export function useFlux(onMessage?: (e: MessageEvent) => void) {
         setConnectionStatus("Waiting for peer...");
         ws.send(JSON.stringify({ type: "join", roomCode: code }));
 
-        const keepAlive = setInterval(() => {
+        if (keepAliveRef.current) clearInterval(keepAliveRef.current);
+        keepAliveRef.current = setInterval(() => {
           if (ws.readyState === WebSocket.OPEN) {
             ws.send(JSON.stringify({ type: "ping" }));
           }
         }, 25000);
-
-        ws.addEventListener("close", () => clearInterval(keepAlive));
       };
 
       ws.onmessage = async (e) => {
@@ -354,14 +374,14 @@ export function useFlux(onMessage?: (e: MessageEvent) => void) {
         // Handle relay ready
         if (msg.type === "relay-start") {
           log(`Relay start — peers: ${msg.peers}`);
-          if (!wsRelayRef.current) {
+          if (!relayStartedRef.current) {
             startWSRelay(code);
           }
           // If both peers present, mark connected
           if (msg.peers >= 2 && wsRelayRef.current) {
             wsRelayRef.current.setOpen();
             setActiveChannel(wsRelayRef.current as unknown as RTCDataChannel);
-            setConnectionState("connected");
+            setConnectionStateSafe("connected");
             setConnectionPath("ws-relay");
             setConnectionStatus("Connected via relay");
             log("Relay connected — both peers present!");
@@ -374,7 +394,7 @@ export function useFlux(onMessage?: (e: MessageEvent) => void) {
           if (msg.peers >= 2 && wsRelayRef.current) {
             wsRelayRef.current.setOpen();
             setActiveChannel(wsRelayRef.current as unknown as RTCDataChannel);
-            setConnectionState("connected");
+            setConnectionStateSafe("connected");
             setConnectionPath("ws-relay");
             setConnectionStatus("Connected via relay");
             log("Relay connected — both peers present!");
@@ -447,14 +467,14 @@ export function useFlux(onMessage?: (e: MessageEvent) => void) {
 
           case "peer-left": {
             log("Peer disconnected");
-            setConnectionState("disconnected");
+            setConnectionStateSafe("disconnected");
             setConnectionStatus("Peer disconnected");
             break;
           }
 
           case "room-full": {
             log("Room full");
-            setConnectionState("idle");
+            setConnectionStateSafe("idle");
             break;
           }
         }
@@ -462,7 +482,7 @@ export function useFlux(onMessage?: (e: MessageEvent) => void) {
 
       ws.onerror = () => {
         log("WebSocket error");
-        setConnectionState("disconnected");
+        setConnectionStateSafe("disconnected");
       };
 
       ws.onclose = () => {
@@ -484,7 +504,7 @@ export function useFlux(onMessage?: (e: MessageEvent) => void) {
   const disconnect = useCallback(() => {
     retryCountRef.current = 0;
     cleanup();
-    setConnectionState("idle");
+    setConnectionStateSafe("idle");
     setConnectionStatus("");
     setRoomCode("");
     setConnectionPath(null);
