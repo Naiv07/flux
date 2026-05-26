@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
 interface Props {
@@ -9,12 +9,27 @@ interface Props {
 export function DiscoverCard({ onConnect, signalingUrl }: Props) {
   const [rooms, setRooms] = useState<{ code: string; age: number }[]>([]);
   const [scanning, setScanning] = useState(false);
+  const wsRef = useRef<WebSocket | null>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      wsRef.current?.close();
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    };
+  }, []);
 
   const scan = useCallback(() => {
+    // Close any previous scan WS
+    wsRef.current?.close();
+    if (timeoutRef.current) clearTimeout(timeoutRef.current);
+
     setScanning(true);
     setRooms([]);
 
     const ws = new WebSocket(signalingUrl);
+    wsRef.current = ws;
+
     ws.onopen = () => {
       ws.send(JSON.stringify({ type: "discover" }));
     };
@@ -24,13 +39,19 @@ export function DiscoverCard({ onConnect, signalingUrl }: Props) {
         setRooms(msg.rooms || []);
         setScanning(false);
         ws.close();
+        wsRef.current = null;
       }
     };
-    ws.onerror = () => setScanning(false);
-
-    setTimeout(() => {
+    ws.onerror = () => {
       setScanning(false);
       ws.close();
+      wsRef.current = null;
+    };
+
+    timeoutRef.current = setTimeout(() => {
+      setScanning(false);
+      ws.close();
+      wsRef.current = null;
     }, 5000);
   }, [signalingUrl]);
 

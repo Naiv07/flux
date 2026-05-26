@@ -216,13 +216,13 @@ func handleConnection(w http.ResponseWriter, r *http.Request) {
 		switch msg.Type {
 
 		case "join":
-			client.roomCode = msg.RoomCode
 			room := hub.getOrCreateRoom(msg.RoomCode)
 			if !room.addClient(client) {
 				errMsg, _ := json.Marshal(map[string]string{"type": "room-full"})
 				client.send <- errMsg
 				return
 			}
+			client.roomCode = msg.RoomCode
 			log.Printf("Client joined room: %s (peers: %d)", msg.RoomCode, room.count())
 			joinedMsg, _ := json.Marshal(map[string]string{
 				"type":     "peer-joined",
