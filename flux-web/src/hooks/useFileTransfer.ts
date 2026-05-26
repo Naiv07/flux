@@ -392,18 +392,18 @@ export function useFileTransfer(channel: RTCDataChannel | null) {
           }
         };
         sendNextChunk();
+      }).then(() => {
+        if (!cancelRef.current) {
+          channel.send(JSON.stringify({ type: "file-complete" }));
+          setProgress((prev) => ({
+            ...prev,
+            status: "complete",
+            percentage: 100,
+          }));
+        }
       }).catch((err) => {
         console.log("[Flux] Transfer stopped:", err.message);
       });
-
-      if (!cancelRef.current) {
-        channel.send(JSON.stringify({ type: "file-complete" }));
-        setProgress((prev) => ({
-          ...prev,
-          status: "complete",
-          percentage: 100,
-        }));
-      }
     },
     [channel, updateProgressThrottled]
   );

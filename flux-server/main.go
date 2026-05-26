@@ -278,8 +278,10 @@ func handleConnection(w http.ResponseWriter, r *http.Request) {
 		case "relay-data":
 			// Raw data relay between peers — forward as-is
 			if client.roomCode != "" && client.isRelay {
-				room := hub.getOrCreateRoom(client.roomCode)
-				room.broadcast(client, rawMsg)
+				room := hub.getRoom(client.roomCode)
+				if room != nil {
+					room.broadcast(client, rawMsg)
+				}
 			}
 
 		case "ping":

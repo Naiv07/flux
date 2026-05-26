@@ -497,7 +497,7 @@ export function useFlux(onMessage?: (e: MessageEvent) => void) {
       };
     },
     [cleanup, createPeerConnection, setupDataChannel,
-     flushIceCandidates, startWSRelay, log]
+     flushIceCandidates, startWSRelay, log, setConnectionStateSafe]
   );
 
   const connect = useCallback(
