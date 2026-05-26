@@ -235,7 +235,7 @@ export function useFlux(onMessage?: (e: MessageEvent) => void) {
 
     // Request relay from server — it tells us peer count
     ws.send(JSON.stringify({ type: "relay-request", roomCode: code }));
-  }, [log, onMessage]);
+  }, [log, onMessage, setConnectionStateSafe]);
 
   const setupDataChannel = useCallback(
     (channel: RTCDataChannel) => {
@@ -269,7 +269,7 @@ export function useFlux(onMessage?: (e: MessageEvent) => void) {
         if (onMessage) onMessage(e);
       };
     },
-    [log, onMessage]
+    [log, onMessage, setConnectionStateSafe]
   );
 
   const createPeerConnection = useCallback(
@@ -311,7 +311,7 @@ export function useFlux(onMessage?: (e: MessageEvent) => void) {
 
       return pc;
     },
-    [setupDataChannel, startWSRelay, log]
+    [setupDataChannel, startWSRelay, log, setConnectionStateSafe]
   );
 
   const connectInternal = useCallback(
