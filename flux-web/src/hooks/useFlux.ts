@@ -337,16 +337,15 @@ export function useFlux(onMessage?: (e: MessageEvent) => void) {
 
       // Hard give-up timeout — after 30s reset if still not connected
       retryTimeoutRef.current = setTimeout(() => {
-        if (
-          connectionStateRef.current !== "connected" &&
-          pcRef.current?.connectionState !== "connected" &&
-          pcRef.current?.iceConnectionState !== "connected"
-        ) {
-          log("Connection timed out");
-          cleanup();
-          setConnectionStateSafe("idle");
-          setConnectionStatus("Connection timed out");
-        }
+        if (wsRelayRef.current?.readyState === "open") return;
+        if (connectionStateRef.current === "connected") return;
+        if (pcRef.current?.connectionState === "connected") return;
+        if (pcRef.current?.iceConnectionState === "connected") return;
+
+        log("Connection timed out");
+        cleanup();
+        setConnectionStateSafe("idle");
+        setConnectionStatus("Connection timed out");
       }, 30000);
 
       ws.onopen = () => {
@@ -380,6 +379,10 @@ export function useFlux(onMessage?: (e: MessageEvent) => void) {
           // If both peers present, mark connected
           if (msg.peers >= 2 && wsRelayRef.current) {
             wsRelayRef.current.setOpen();
+            if (retryTimeoutRef.current) {
+              clearTimeout(retryTimeoutRef.current);
+              retryTimeoutRef.current = null;
+            }
             setActiveChannel(wsRelayRef.current as unknown as RTCDataChannel);
             setConnectionStateSafe("connected");
             setConnectionPath("ws-relay");
@@ -393,6 +396,10 @@ export function useFlux(onMessage?: (e: MessageEvent) => void) {
           log(`Relay ready — peers: ${msg.peers}`);
           if (msg.peers >= 2 && wsRelayRef.current) {
             wsRelayRef.current.setOpen();
+            if (retryTimeoutRef.current) {
+              clearTimeout(retryTimeoutRef.current);
+              retryTimeoutRef.current = null;
+            }
             setActiveChannel(wsRelayRef.current as unknown as RTCDataChannel);
             setConnectionStateSafe("connected");
             setConnectionPath("ws-relay");
