@@ -7,7 +7,6 @@ import { useFileTransfer } from "./hooks/useFileTransfer";
 import { ParticleBackground } from "./components/ParticleBackground";
 import { ConnectionCard } from "./components/ConnectionCard";
 import { TransferCard } from "./components/TransferCard";
-import { ScreenShareCard } from "./components/ScreenShareCard";
 import { ModeSelectCard } from "./components/ModeSelectCard";
 import { DiscoverCard } from "./components/DiscoverCard";
 
@@ -45,9 +44,6 @@ function App() {
     connect,
     channel,
     disconnect,
-    startScreenShare,
-    stopScreenShare,
-    remoteStream,
     connectionPath,
   } = useFlux((e) => onMessageRef.current?.(e));
 
@@ -218,12 +214,6 @@ function App() {
               cancelTransfer={cancelTransfer}
             />
 
-            <ScreenShareCard
-              startScreenShare={startScreenShare}
-              stopScreenShare={stopScreenShare}
-              remoteStream={remoteStream}
-              isMobile={isMobileView}
-            />
           </div>
         )}
       </div>

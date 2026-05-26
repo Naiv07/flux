@@ -103,7 +103,6 @@ export function useFlux(onMessage?: (e: MessageEvent) => void) {
     useState<ConnectionState>("idle");
   const [roomCode, setRoomCode] = useState("");
   const [logs, setLogs] = useState<string[]>([]);
-  const [remoteStream, setRemoteStream] = useState<MediaStream | null>(null);
   const [connectionPath, setConnectionPath] = useState<"local" | "internet" | "relay" | "ws-relay" | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<string>("");
   const [activeChannel, setActiveChannel] = useState<RTCDataChannel | null>(null);
@@ -111,7 +110,6 @@ export function useFlux(onMessage?: (e: MessageEvent) => void) {
   const wsRef = useRef<WebSocket | null>(null);
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const channelRef = useRef<RTCDataChannel | WSRelay | null>(null);
-  const screenStreamRef = useRef<MediaStream | null>(null);
   const detectPathRef = useRef<(() => void) | null>(null);
   const retryCountRef = useRef(0);
   const retryTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -146,12 +144,6 @@ export function useFlux(onMessage?: (e: MessageEvent) => void) {
     relayStartedRef.current = false;
     setActiveChannel(null);
   }, []);
-
-  const stopScreenShare = useCallback(() => {
-    screenStreamRef.current?.getTracks().forEach((t) => t.stop());
-    screenStreamRef.current = null;
-    log("Screen sharing stopped");
-  }, [log]);
 
   const detectConnectionPath = useCallback(async () => {
     const pc = pcRef.current;
@@ -269,11 +261,6 @@ export function useFlux(onMessage?: (e: MessageEvent) => void) {
       pcRef.current = pc;
       remoteDescSet.current = false;
 
-      pc.ontrack = (e) => {
-        log("Remote stream received");
-        setRemoteStream(e.streams[0]);
-      };
-
       pc.onicecandidate = (e) => {
         if (e.candidate && wsRef.current?.readyState === WebSocket.OPEN) {
           wsRef.current.send(JSON.stringify({
@@ -330,6 +317,16 @@ export function useFlux(onMessage?: (e: MessageEvent) => void) {
           startWSRelay(code);
         }
       }, 8000);
+
+      // Hard give-up timeout — after 30s reset if still not connected
+      retryTimeoutRef.current = setTimeout(() => {
+        if (connectionState !== "connected") {
+          log("Connection timed out");
+          setConnectionState("idle");
+          setConnectionStatus("Connection timed out");
+          cleanup();
+        }
+      }, 30000);
 
       ws.onopen = () => {
         log("Signaling server connected");
@@ -506,25 +503,6 @@ export function useFlux(onMessage?: (e: MessageEvent) => void) {
     [log]
   );
 
-  const startScreenShare = useCallback(async () => {
-    try {
-      const stream = await navigator.mediaDevices.getDisplayMedia({
-        video: { frameRate: 30 },
-        audio: true,
-      });
-      screenStreamRef.current = stream;
-      stream.getTracks().forEach((track) => {
-        pcRef.current?.addTrack(track, stream);
-      });
-      stream.getVideoTracks()[0].onended = () => stopScreenShare();
-      log("Screen sharing started");
-      return stream;
-    } catch {
-      log("Screen share cancelled");
-      return null;
-    }
-  }, [log, stopScreenShare]);
-
   useEffect(() => {
     return () => cleanup();
   }, [cleanup]);
@@ -539,9 +517,6 @@ export function useFlux(onMessage?: (e: MessageEvent) => void) {
     logs,
     channel: activeChannel,
     disconnect,
-    startScreenShare,
-    stopScreenShare,
-    remoteStream,
     connectionPath,
   };
 }
