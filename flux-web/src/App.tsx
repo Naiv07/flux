@@ -141,8 +141,12 @@ function App() {
       display: "flex",
       flexDirection: "column",
       alignItems: "center",
-      justifyContent: "center",
-      padding: "24px",
+      // Mobile: flex-start so new content appends downward without recentering the block
+      justifyContent: isMobileView ? "flex-start" : "center",
+      paddingTop: isMobileView ? "48px" : "24px",
+      paddingBottom: "24px",
+      paddingLeft: "24px",
+      paddingRight: "24px",
       gap: "16px",
       position: "relative",
       overflowY: "auto",
@@ -169,6 +173,7 @@ function App() {
         {mode && (
           <div style={{
             display: "grid",
+            // Desktop: switch to two columns when connected
             gridTemplateColumns: !isMobileView && isConnected
               ? "repeat(auto-fit, minmax(380px, 1fr))"
               : "1fr",
@@ -177,7 +182,8 @@ function App() {
             maxWidth: "100%",
             alignItems: "start",
           }}>
-            {isConnected && (
+            {/* Desktop only: PathBadge above both cards as a header row */}
+            {isConnected && !isMobileView && (
               <div style={{ gridColumn: "1 / -1" }}>
                 <PathBadge path={connectionPath} />
               </div>
@@ -215,6 +221,11 @@ function App() {
                 resumeTransfer={resumeTransfer}
                 cancelTransfer={cancelTransfer}
               />
+            )}
+
+            {/* Mobile only: PathBadge below both cards so ConnectionCard never shifts */}
+            {isConnected && isMobileView && (
+              <PathBadge path={connectionPath} />
             )}
           </div>
         )}
