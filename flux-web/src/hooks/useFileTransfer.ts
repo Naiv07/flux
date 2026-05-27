@@ -4,6 +4,8 @@ import {
   generateTransferId,
 } from "../lib/transferStore";
 
+const isDev = import.meta.env.DEV;
+
 const CHUNK_SIZE = 64 * 1024; // 64KB chunks (works for both WebRTC and relay)
 
 export type TransferStatus =
@@ -166,7 +168,7 @@ export function useFileTransfer(channel: RTCDataChannel | null) {
 
           if (state.writable) {
             state.writable.close().then(() => {
-              console.log("[Flux] File saved:", state.fileName);
+              if (isDev) console.log("[Flux Transfer] File saved:", state.fileName);
             });
           } else {
             const blob = new Blob(state.chunks, { type: state.fileType });
@@ -225,9 +227,7 @@ export function useFileTransfer(channel: RTCDataChannel | null) {
 
         if (meta.type === "bandwidth-adjust") {
           throttleDelayRef.current = meta.delay;
-          console.log(
-            `[Flux] Bandwidth: ${meta.mbps} Mbps, delay set to ${meta.delay}ms`
-          );
+          if (isDev) console.log(`[Flux Transfer] Bandwidth: ${meta.mbps} Mbps, delay set to ${meta.delay}ms`);
         }
 
         return;
@@ -402,7 +402,7 @@ export function useFileTransfer(channel: RTCDataChannel | null) {
           }));
         }
       }).catch((err) => {
-        console.log("[Flux] Transfer stopped:", err.message);
+        if (isDev) console.log("[Flux Transfer] Transfer stopped:", err.message);
       });
     },
     [channel, updateProgressThrottled]

@@ -21,6 +21,7 @@ type Client struct {
 	conn        *websocket.Conn
 	roomCode    string
 	send        chan []byte
+	sendBinary  chan []byte
 	connectedAt time.Time
 	isRelay     bool
 }
@@ -125,6 +126,20 @@ func (r *Room) broadcast(sender *Client, message []byte) {
 	}
 }
 
+func (r *Room) broadcastBinary(sender *Client, message []byte) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	for _, client := range r.clients {
+		if client != sender {
+			select {
+			case client.sendBinary <- message:
+			default:
+				log.Println("Binary send buffer full — dropping")
+			}
+		}
+	}
+}
+
 func (r *Room) count() int {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -150,6 +165,7 @@ func handleConnection(w http.ResponseWriter, r *http.Request) {
 	client := &Client{
 		conn:        conn,
 		send:        make(chan []byte, 1024),
+		sendBinary:  make(chan []byte, 1024),
 		connectedAt: time.Now(),
 	}
 
@@ -170,11 +186,12 @@ func handleConnection(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		close(client.send)
+		close(client.sendBinary)
 		conn.Close()
 		log.Println("Client disconnected")
 	}()
 
-	// Write pump
+	// Write pump — handle both text and binary
 	go func() {
 		ticker := time.NewTicker(30 * time.Second)
 		defer ticker.Stop()
@@ -189,6 +206,14 @@ func handleConnection(w http.ResponseWriter, r *http.Request) {
 				if err := conn.WriteMessage(websocket.TextMessage, msg); err != nil {
 					return
 				}
+			case msg, ok := <-client.sendBinary:
+				conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
+				if !ok {
+					return
+				}
+				if err := conn.WriteMessage(websocket.BinaryMessage, msg); err != nil {
+					return
+				}
 			case <-ticker.C:
 				conn.SetWriteDeadline(time.Now().Add(10 * time.Second))
 				if err := conn.WriteMessage(websocket.PingMessage, nil); err != nil {
@@ -201,11 +226,22 @@ func handleConnection(w http.ResponseWriter, r *http.Request) {
 	log.Println("New client connected")
 
 	for {
-		_, rawMsg, err := conn.ReadMessage()
+		msgType, rawMsg, err := conn.ReadMessage()
 		if err != nil {
 			break
 		}
 		conn.SetReadDeadline(time.Now().Add(120 * time.Second))
+
+		// Binary frame — relay directly to peer without JSON parsing
+		if msgType == websocket.BinaryMessage {
+			if client.roomCode != "" && client.isRelay {
+				room := hub.getRoom(client.roomCode)
+				if room != nil {
+					room.broadcastBinary(client, rawMsg)
+				}
+			}
+			continue
+		}
 
 		var msg Message
 		if err := json.Unmarshal(rawMsg, &msg); err != nil {
@@ -276,7 +312,7 @@ func handleConnection(w http.ResponseWriter, r *http.Request) {
 			}
 
 		case "relay-data":
-			// Raw data relay between peers — forward as-is
+			// Text relay data — forward as-is
 			if client.roomCode != "" && client.isRelay {
 				room := hub.getRoom(client.roomCode)
 				if room != nil {

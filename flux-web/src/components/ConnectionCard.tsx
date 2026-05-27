@@ -205,9 +205,35 @@ export function ConnectionCard({
                     fontWeight: "600",
                     color: "#e8e8f0",
                     cursor: "pointer",
+                    width: "100%",
                   }}
                 >
                   Copy Code
+                </motion.button>
+
+                <motion.button
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  onClick={() => {
+                    const url = `${window.location.origin}?code=${roomCode}`;
+                    navigator.share
+                      ? navigator.share({ title: "Flux", text: "Join my Flux session", url })
+                      : navigator.clipboard.writeText(url);
+                  }}
+                  style={{
+                    marginTop: "8px",
+                    background: "rgba(0,212,255,0.08)",
+                    border: "1px solid rgba(0,212,255,0.2)",
+                    borderRadius: "10px",
+                    padding: "8px 16px",
+                    fontSize: "12px",
+                    fontWeight: "600",
+                    color: "#00d4ff",
+                    cursor: "pointer",
+                    width: "100%",
+                  }}
+                >
+                  Share Link
                 </motion.button>
               </div>
             </>

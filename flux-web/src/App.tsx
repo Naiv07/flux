@@ -27,6 +27,21 @@ function App() {
   const onMessageRef = useRef<((e: MessageEvent) => void) | null>(null);
   const isConnectingRef = useRef(false);
 
+  // Check for ?code= in URL on load
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const codeFromUrl = params.get("code");
+    if (codeFromUrl && codeFromUrl.length === 6) {
+      const code = codeFromUrl.toUpperCase();
+      setMode("receive");
+      setRoomCode(code);
+      // Clean the URL
+      window.history.replaceState({}, "", window.location.pathname);
+      // Auto-connect after a moment
+      setTimeout(() => connect(code), 500);
+    }
+  }, []);
+
   const handleSetMode = (selectedMode: "send" | "receive") => {
     if (isConnectingRef.current) return;
     if (connectionState === "connecting" || connectionState === "connected") return;

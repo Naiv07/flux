@@ -5,6 +5,8 @@ import type { ConnectionState } from "../types";
 const SIGNALING_SERVER =
   import.meta.env.VITE_SIGNALING_SERVER || "ws://localhost:8080/ws";
 
+const isDev = import.meta.env.DEV;
+
 const ICE_SERVERS: RTCConfiguration = {
   iceServers: [
     { urls: "stun:stun.l.google.com:19302" },
@@ -44,6 +46,7 @@ class WSRelay {
     if (this.ws.readyState !== WebSocket.OPEN) return;
 
     if (typeof data === "string") {
+      // Text — wrap in JSON as before
       this.ws.send(JSON.stringify({
         type: "relay-data",
         roomCode: this.roomCode,
@@ -51,23 +54,13 @@ class WSRelay {
         data: data,
       }));
     } else {
-      // Binary — convert to base64
-      const bytes = new Uint8Array(data);
-      let binary = "";
-      const chunkSize = 8192;
-      for (let i = 0; i < bytes.length; i += chunkSize) {
-        binary += String.fromCharCode.apply(
-          null,
-          Array.from(bytes.subarray(i, i + chunkSize))
-        );
-      }
-      const base64 = btoa(binary);
-      this.ws.send(JSON.stringify({
-        type: "relay-data",
-        roomCode: this.roomCode,
-        dataType: "binary",
-        data: base64,
-      }));
+      // Binary — prepend 8-byte room code header so server can route it
+      const encoder = new TextEncoder();
+      const roomBytes = encoder.encode(this.roomCode.padEnd(8, " "));
+      const combined = new Uint8Array(roomBytes.length + (data as ArrayBuffer).byteLength);
+      combined.set(roomBytes, 0);
+      combined.set(new Uint8Array(data as ArrayBuffer), roomBytes.length);
+      this.ws.send(combined.buffer);
     }
   }
 
@@ -78,9 +71,7 @@ class WSRelay {
 
   handleRelayData(dataType: string, data: string) {
     if (!this.onmessage) return;
-
     if (dataType === "binary") {
-      // Decode base64 back to ArrayBuffer
       const binary = atob(data);
       const bytes = new Uint8Array(binary.length);
       for (let i = 0; i < binary.length; i++) {
@@ -90,6 +81,13 @@ class WSRelay {
     } else {
       this.onmessage(new MessageEvent("message", { data }));
     }
+  }
+
+  handleBinaryData(data: ArrayBuffer) {
+    if (!this.onmessage) return;
+    // Strip the 8-byte room code header
+    const payload = data.slice(8);
+    this.onmessage(new MessageEvent("message", { data: payload }));
   }
 
   setOpen() {
@@ -124,7 +122,7 @@ export function useFlux(onMessage?: (e: MessageEvent) => void) {
   const connectionStateRef = useRef<ConnectionState>("idle");
 
   const log = useCallback((msg: string) => {
-    console.log("[Flux]", msg);
+    if (isDev) console.log("[Flux]", msg);
     setLogs((prev) => [...prev, `${new Date().toLocaleTimeString()} — ${msg}`]);
   }, []);
 
@@ -324,6 +322,7 @@ export function useFlux(onMessage?: (e: MessageEvent) => void) {
       log(`Connecting to room: ${code}`);
 
       const ws = new WebSocket(SIGNALING_SERVER);
+      ws.binaryType = "arraybuffer";
       wsRef.current = ws;
 
       // WebRTC timeout — after 8s fall back to WS relay
@@ -362,9 +361,20 @@ export function useFlux(onMessage?: (e: MessageEvent) => void) {
       };
 
       ws.onmessage = async (e) => {
+        // Handle binary relay data
+        if (e.data instanceof ArrayBuffer || e.data instanceof Blob) {
+          if (wsRelayRef.current) {
+            const buffer = e.data instanceof Blob
+              ? await e.data.arrayBuffer()
+              : e.data;
+            wsRelayRef.current.handleBinaryData(buffer);
+          }
+          return;
+        }
+
         const msg = JSON.parse(e.data);
 
-        // Handle relay data
+        // Text relay data
         if (msg.type === "relay-data" && wsRelayRef.current) {
           wsRelayRef.current.handleRelayData(msg.dataType ?? "string", msg.data);
           return;
