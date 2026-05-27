@@ -174,6 +174,8 @@ export function TransferCard({
             fontWeight: "700",
             color: progressColor,
             flexShrink: 0,
+            minWidth: "3.5ch",
+            textAlign: "right",
           }}>
             {progress.percentage}%
           </span>
@@ -188,11 +190,13 @@ export function TransferCard({
           overflow: "hidden",
         }}>
           <motion.div
-            animate={{ width: `${progress.percentage}%` }}
+            animate={{ scaleX: progress.percentage / 100 }}
             transition={{ ease: "easeOut", duration: 0.2 }}
             style={{
               height: "100%",
+              width: "100%",
               borderRadius: "999px",
+              transformOrigin: "left",
               background: isComplete
                 ? "#00ff88"
                 : isCancelled
@@ -246,6 +250,7 @@ export function TransferCard({
                 alignItems: "center",
                 justifyContent: "center",
                 gap: "6px",
+                touchAction: "manipulation",
               }}
             >
               <Play size={14} weight="bold" />
@@ -270,6 +275,7 @@ export function TransferCard({
                 alignItems: "center",
                 justifyContent: "center",
                 gap: "6px",
+                touchAction: "manipulation",
               }}
             >
               <Pause size={14} weight="bold" />
@@ -295,6 +301,7 @@ export function TransferCard({
               alignItems: "center",
               justifyContent: "center",
               gap: "6px",
+              touchAction: "manipulation",
             }}
           >
             <X size={14} weight="bold" />
