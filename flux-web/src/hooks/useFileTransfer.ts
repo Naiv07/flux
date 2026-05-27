@@ -55,6 +55,7 @@ export function useFileTransfer(channel: RTCDataChannel | null) {
   }, []);
 
   const pauseTransfer = useCallback(() => {
+    if (pauseRef.current) return;
     pauseRef.current = true;
     channel?.send(JSON.stringify({ type: "transfer-paused" }));
     setProgress((prev) => ({ ...prev, status: "paused" }));
@@ -77,6 +78,7 @@ export function useFileTransfer(channel: RTCDataChannel | null) {
   }, [channel]);
 
   const cancelTransfer = useCallback(() => {
+    if (cancelRef.current) return;
     cancelRef.current = true;
     pauseRef.current = false;
     if (resumeResolverRef.current) {
@@ -211,9 +213,14 @@ export function useFileTransfer(channel: RTCDataChannel | null) {
 
         if (meta.type === "transfer-resumed") {
           pauseRef.current = false;
+          const wasSender = resumeResolverRef.current !== null;
+          if (resumeResolverRef.current) {
+            resumeResolverRef.current();
+            resumeResolverRef.current = null;
+          }
           setProgress((prev) => ({
             ...prev,
-            status: prev.transferred < prev.fileSize ? "sending" : prev.status,
+            status: wasSender ? "sending" : "receiving",
           }));
         }
 

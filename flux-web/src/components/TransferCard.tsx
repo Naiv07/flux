@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useRef, useEffect } from "react";
 import { motion } from "framer-motion";
 import {
   ArrowUp,
@@ -28,10 +28,17 @@ export function TransferCard({
   cancelTransfer,
 }: Props) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const directionRef = useRef<"send" | "receive">("send");
 
   const isSending   = progress.status === "sending";
   const isReceiving = progress.status === "receiving";
   const isPaused    = progress.status === "paused";
+
+  // Track last known direction so icon stays correct while paused
+  useEffect(() => {
+    if (isSending) directionRef.current = "send";
+    if (isReceiving) directionRef.current = "receive";
+  }, [isSending, isReceiving]);
   const isComplete  = progress.status === "complete";
   const isCancelled = progress.status === "cancelled";
   const isActive    = isSending || isReceiving || isPaused;
@@ -89,7 +96,6 @@ export function TransferCard({
       />
 
       <motion.button
-        whileHover={{ scale: 1.02 }}
         whileTap={{ scale: 0.98 }}
         onClick={() => fileInputRef.current?.click()}
         disabled={isActive}
@@ -147,7 +153,7 @@ export function TransferCard({
               <CheckCircle size={16} weight="bold" color="#00ff88" />
             ) : isCancelled ? (
               <X size={16} weight="bold" color="#ff6b6b" />
-            ) : isSending ? (
+            ) : directionRef.current === "send" ? (
               <ArrowUp size={16} weight="bold" color="#6c63ff" />
             ) : (
               <ArrowDown size={16} weight="bold" color="#89CFF0" />
@@ -198,6 +204,7 @@ export function TransferCard({
           overflow: "hidden",
         }}>
           <motion.div
+            initial={{ scaleX: 0 }}
             animate={{ scaleX: progress.percentage / 100 }}
             transition={{ ease: "easeOut", duration: 0.2 }}
             style={{
@@ -241,7 +248,6 @@ export function TransferCard({
         }}>
           {/* Single stable button — never unmounts, avoids Android tap-miss on remount */}
           <motion.button
-            whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             onClick={isPaused ? resumeTransfer : pauseTransfer}
             style={{
@@ -266,7 +272,6 @@ export function TransferCard({
           </motion.button>
 
           <motion.button
-            whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             onClick={cancelTransfer}
             style={{
