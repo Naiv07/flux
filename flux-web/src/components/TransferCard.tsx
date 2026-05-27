@@ -61,7 +61,7 @@ export function TransferCard({
         width: "100%",
         maxWidth: "100%",
         boxSizing: "border-box",
-        minHeight: "200px",
+        minHeight: "240px",
         display: "flex",
         flexDirection: "column",
         gap: "20px",
@@ -128,7 +128,7 @@ export function TransferCard({
         opacity: progress.status === "idle" ? 0 : 1,
         transition: "opacity 0.3s ease",
         visibility: progress.status === "idle" ? "hidden" : "visible",
-        minHeight: "120px",
+        minHeight: "160px",
       }}>
         {/* File info */}
         <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>

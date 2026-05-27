@@ -156,15 +156,18 @@ function App() {
       display: "flex",
       flexDirection: "column",
       alignItems: "center",
-      // Mobile: flex-start so new content appends downward without recentering the block
-      justifyContent: isMobileView ? "flex-start" : "center",
-      paddingTop: isMobileView ? "48px" : "24px",
-      paddingBottom: "24px",
-      paddingLeft: "24px",
-      paddingRight: "24px",
+      justifyContent: "center",
+      padding: "16px",
+      paddingTop: "max(16px, env(safe-area-inset-top))",
+      paddingBottom: "max(16px, env(safe-area-inset-bottom))",
+      paddingLeft: "max(16px, env(safe-area-inset-left))",
+      paddingRight: "max(16px, env(safe-area-inset-right))",
       gap: "16px",
       position: "relative",
+      overflowX: "hidden",
       overflowY: "auto",
+      boxSizing: "border-box",
+      width: "100%",
     }}>
       <ParticleBackground connected={isConnected} />
 
@@ -187,14 +190,13 @@ function App() {
         {mode && (
           <div style={{
             display: "grid",
-            // Desktop: switch to two columns when connected
             gridTemplateColumns: !isMobileView && isConnected
               ? "repeat(auto-fit, minmax(380px, 1fr))"
               : "1fr",
-            gap: "16px",
+            gap: isMobileView ? "12px" : "16px",
             width: "100%",
-            maxWidth: "100%",
             alignItems: "start",
+            overflowX: "hidden",
           }}>
             {/* Desktop only: PathBadge above both cards as a header row */}
             {isConnected && !isMobileView && (
@@ -205,6 +207,7 @@ function App() {
 
             <div style={!isConnected ? { maxWidth: "448px", width: "100%", margin: "0 auto" } : undefined}>
               <ConnectionCard
+                key={mode}
                 connectionStatus={connectionStatus}
                 connectionState={connectionState}
                 roomCode={roomCode}
@@ -219,6 +222,7 @@ function App() {
             {!isConnected && mode === "receive" && (
               <div style={{ gridColumn: "1 / -1" }}>
                 <DiscoverCard
+                  key="discover"
                   onConnect={(code) => {
                     setRoomCode(code);
                     connect(code);
