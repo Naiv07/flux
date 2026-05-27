@@ -15,12 +15,13 @@ import { DiscoverCard } from "./components/DiscoverCard";
   "ws://localhost:8080/ws";
 
 function App() {
-  const [isMobileView, setIsMobileView] = useState(window.innerWidth < 1024);
+  const mq = window.matchMedia("(max-width: 767px)");
+  const [isMobileView, setIsMobileView] = useState(mq.matches);
 
   useEffect(() => {
-    const handleResize = () => setIsMobileView(window.innerWidth < 1024);
-    window.addEventListener("resize", handleResize);
-    return () => window.removeEventListener("resize", handleResize);
+    const handleChange = (e: MediaQueryListEvent) => setIsMobileView(e.matches);
+    mq.addEventListener("change", handleChange);
+    return () => mq.removeEventListener("change", handleChange);
   }, []);
 
   const [mode, setMode] = useState<"send" | "receive" | null>(null);

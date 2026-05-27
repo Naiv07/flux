@@ -61,6 +61,7 @@ export function TransferCard({
         width: "100%",
         maxWidth: "100%",
         boxSizing: "border-box",
+        overflow: "hidden",
         minHeight: "240px",
         display: "flex",
         flexDirection: "column",
@@ -164,7 +165,14 @@ export function TransferCard({
             }}>
               {progress.fileName || "—"}
             </p>
-            <p style={{ fontSize: "12px", color: "#6b7280", marginTop: "2px" }}>
+            <p style={{
+              fontSize: "12px",
+              color: "#6b7280",
+              marginTop: "2px",
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+            }}>
               {formatBytes(progress.transferred)} of {formatBytes(progress.fileSize)}
             </p>
           </div>
