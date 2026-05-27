@@ -40,7 +40,7 @@ export function useFileTransfer(channel: RTCDataChannel | null) {
   const transferIdRef = useRef<string>("");
   const pauseRef = useRef(false);
   const cancelRef = useRef(false);
-  const pauseIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const resumeResolverRef = useRef<(() => void) | null>(null);
   const throttleDelayRef = useRef(0);
   const lastSpeedCheckRef = useRef(Date.now());
   const bytesAtLastCheckRef = useRef(0);
@@ -61,14 +61,28 @@ export function useFileTransfer(channel: RTCDataChannel | null) {
   }, [channel]);
 
   const resumeTransfer = useCallback(() => {
+    if (!pauseRef.current) return;
     pauseRef.current = false;
+    // Capture before nulling — resolver only exists on the sender side
+    const wasSender = resumeResolverRef.current !== null;
+    if (resumeResolverRef.current) {
+      resumeResolverRef.current();
+      resumeResolverRef.current = null;
+    }
     channel?.send(JSON.stringify({ type: "transfer-resumed" }));
-    setProgress((prev) => ({ ...prev, status: "sending" }));
+    setProgress((prev) => ({
+      ...prev,
+      status: wasSender ? "sending" : "receiving",
+    }));
   }, [channel]);
 
   const cancelTransfer = useCallback(() => {
     cancelRef.current = true;
     pauseRef.current = false;
+    if (resumeResolverRef.current) {
+      resumeResolverRef.current();
+      resumeResolverRef.current = null;
+    }
     channel?.send(JSON.stringify({ type: "transfer-cancelled" }));
 
     const state = receivingRef.current;
@@ -331,17 +345,14 @@ export function useFileTransfer(channel: RTCDataChannel | null) {
               }
 
               if (pauseRef.current) {
-                pauseIntervalRef.current = setInterval(() => {
-                  if (!pauseRef.current || cancelRef.current) {
-                    if (pauseIntervalRef.current) {
-                      clearInterval(pauseIntervalRef.current);
-                      pauseIntervalRef.current = null;
-                    }
-                    if (cancelRef.current) reject(new Error("cancelled"));
-                    else sendNextChunk();
-                  }
-                }, 200);
-                return;
+                await new Promise<void>((resolve) => {
+                  resumeResolverRef.current = resolve;
+                });
+                if (cancelRef.current) {
+                  reject(new Error("cancelled"));
+                  return;
+                }
+                continue;
               }
 
               if (channel.bufferedAmount > channel.bufferedAmountLowThreshold) {
@@ -418,8 +429,9 @@ export function useFileTransfer(channel: RTCDataChannel | null) {
 
   useEffect(() => {
     return () => {
-      if (pauseIntervalRef.current) {
-        clearInterval(pauseIntervalRef.current);
+      if (resumeResolverRef.current) {
+        resumeResolverRef.current();
+        resumeResolverRef.current = null;
       }
     };
   }, []);

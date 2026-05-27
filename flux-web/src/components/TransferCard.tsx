@@ -239,57 +239,31 @@ export function TransferCard({
           pointerEvents: isActive ? "auto" : "none",
           transition: "opacity 0.2s ease",
         }}>
-          {isPaused ? (
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={resumeTransfer}
-              style={{
-                flex: 1,
-                background: "rgba(108,99,255,0.15)",
-                border: "1px solid rgba(108,99,255,0.3)",
-                borderRadius: "10px",
-                padding: "10px",
-                fontSize: "13px",
-                fontWeight: "600",
-                color: "#6c63ff",
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: "6px",
-                touchAction: "manipulation",
-              }}
-            >
-              <Play size={14} weight="bold" />
-              Resume
-            </motion.button>
-          ) : (
-            <motion.button
-              whileHover={{ scale: 1.02 }}
-              whileTap={{ scale: 0.98 }}
-              onClick={pauseTransfer}
-              style={{
-                flex: 1,
-                background: "rgba(251,191,36,0.1)",
-                border: "1px solid rgba(251,191,36,0.3)",
-                borderRadius: "10px",
-                padding: "10px",
-                fontSize: "13px",
-                fontWeight: "600",
-                color: "#fbbf24",
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                gap: "6px",
-                touchAction: "manipulation",
-              }}
-            >
-              <Pause size={14} weight="bold" />
-              Pause
-            </motion.button>
-          )}
+          {/* Single stable button — never unmounts, avoids Android tap-miss on remount */}
+          <motion.button
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={isPaused ? resumeTransfer : pauseTransfer}
+            style={{
+              flex: 1,
+              background: isPaused ? "rgba(108,99,255,0.15)" : "rgba(251,191,36,0.1)",
+              border: `1px solid ${isPaused ? "rgba(108,99,255,0.3)" : "rgba(251,191,36,0.3)"}`,
+              borderRadius: "10px",
+              padding: "10px",
+              fontSize: "13px",
+              fontWeight: "600",
+              color: isPaused ? "#6c63ff" : "#fbbf24",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: "6px",
+              touchAction: "manipulation",
+            }}
+          >
+            {isPaused ? <Play size={14} weight="bold" /> : <Pause size={14} weight="bold" />}
+            {isPaused ? "Resume" : "Pause"}
+          </motion.button>
 
           <motion.button
             whileHover={{ scale: 1.02 }}
