@@ -46,28 +46,19 @@ function App() {
     if (isConnectingRef.current) return;
     if (connectionState === "connecting" || connectionState === "connected") return;
 
-    // Reset everything first
-    setRoomCode("");
-    setMode(null);
-
     isConnectingRef.current = true;
+    setMode(selectedMode);
 
-    // Small delay to let state clean up
-    setTimeout(() => {
-      setMode(selectedMode);
-      if (selectedMode === "send") {
-        const code = generateRoomCode();
-        setRoomCode(code);
-        setTimeout(() => {
-          connect(code);
-          setTimeout(() => {
-            isConnectingRef.current = false;
-          }, 1000);
-        }, 300);
-      } else {
+    if (selectedMode === "send") {
+      const code = generateRoomCode();
+      setRoomCode(code);
+      setTimeout(() => {
+        connect(code);
         isConnectingRef.current = false;
-      }
-    }, 50);
+      }, 300);
+    } else {
+      isConnectingRef.current = false;
+    }
   };
 
     const {
@@ -149,18 +140,16 @@ function App() {
 
   // Wrap disconnect to also reset mode
   const handleDisconnect = () => {
+    isConnectingRef.current = false;
     disconnect();
     setMode(null);
   };
 
   const handleBack = () => {
+    isConnectingRef.current = false;
     disconnect();
     setMode(null);
     setRoomCode("");
-    // Force a clean state after disconnect settles
-    setTimeout(() => {
-      setMode(null);
-    }, 100);
   };
 
   return (
