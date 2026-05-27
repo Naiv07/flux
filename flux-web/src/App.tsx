@@ -98,6 +98,8 @@ function App() {
         window.history.pushState({ screen: "home" }, "");
       } else if (mode) {
         // If on connection screen, back goes to mode select
+        isConnectingRef.current = false;
+        disconnect();
         setMode(null);
         setRoomCode("");
         window.history.pushState({ screen: "home" }, "");
