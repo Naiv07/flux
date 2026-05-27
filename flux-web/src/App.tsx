@@ -27,18 +27,6 @@ function App() {
   const onMessageRef = useRef<((e: MessageEvent) => void) | null>(null);
   const isConnectingRef = useRef(false);
 
-  // useFlux MUST come before handleSetMode
-  const {
-    connectionState,
-    connectionStatus,
-    roomCode,
-    setRoomCode,
-    connect,
-    channel,
-    disconnect,
-    connectionPath,
-  } = useFlux((e) => onMessageRef.current?.(e));
-
   // Check for ?code= in URL on load
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -54,7 +42,6 @@ function App() {
     }
   }, []);
 
-  // handleSetMode AFTER useFlux
   const handleSetMode = (selectedMode: "send" | "receive") => {
     if (isConnectingRef.current) return;
     if (connectionState === "connecting" || connectionState === "connected") return;
@@ -73,6 +60,17 @@ function App() {
       isConnectingRef.current = false;
     }
   };
+
+    const {
+    connectionState,
+    connectionStatus,
+    roomCode,
+    setRoomCode,
+    connect,
+    channel,
+    disconnect,
+    connectionPath,
+  } = useFlux((e) => onMessageRef.current?.(e));
 
   const {
     progress,
