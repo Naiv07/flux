@@ -46,19 +46,28 @@ function App() {
     if (isConnectingRef.current) return;
     if (connectionState === "connecting" || connectionState === "connected") return;
 
-    isConnectingRef.current = true;
-    setMode(selectedMode);
+    // Reset everything first
+    setRoomCode("");
+    setMode(null);
 
-    if (selectedMode === "send") {
-      const code = generateRoomCode();
-      setRoomCode(code);
-      setTimeout(() => {
-        connect(code);
-        setTimeout(() => { isConnectingRef.current = false; }, 1000);
-      }, 300);
-    } else {
-      isConnectingRef.current = false;
-    }
+    isConnectingRef.current = true;
+
+    // Small delay to let state clean up
+    setTimeout(() => {
+      setMode(selectedMode);
+      if (selectedMode === "send") {
+        const code = generateRoomCode();
+        setRoomCode(code);
+        setTimeout(() => {
+          connect(code);
+          setTimeout(() => {
+            isConnectingRef.current = false;
+          }, 1000);
+        }, 300);
+      } else {
+        isConnectingRef.current = false;
+      }
+    }, 50);
   };
 
     const {
@@ -145,9 +154,13 @@ function App() {
   };
 
   const handleBack = () => {
-    disconnect();    // fully cleanup WebSocket
+    disconnect();
     setMode(null);
     setRoomCode("");
+    // Force a clean state after disconnect settles
+    setTimeout(() => {
+      setMode(null);
+    }, 100);
   };
 
   return (

@@ -519,12 +519,15 @@ export function useFlux(onMessage?: (e: MessageEvent) => void) {
   );
 
   const disconnect = useCallback(() => {
-    retryCountRef.current = 0;
     cleanup();
-    setConnectionStateSafe("idle");
+    // Reset all state immediately
+    connectionStateRef.current = "idle";
+    setConnectionState("idle");
     setConnectionStatus("");
     setRoomCode("");
     setConnectionPath(null);
+    relayStartedRef.current = false;
+    retryCountRef.current = 0;
     log("Disconnected");
   }, [cleanup, log]);
 
