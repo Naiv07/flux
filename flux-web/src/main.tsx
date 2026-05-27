@@ -11,6 +11,11 @@ if ("serviceWorker" in navigator) {
       .register("/sw.js")
       .then(() => console.log("[Flux] Service Worker registered"))
       .catch((err) => console.log("[Flux] SW registration failed:", err));
+
+    // Auto-reload when a new SW takes control — picks up fresh HTML + JS bundle
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+      window.location.reload();
+    });
   });
 }
 
