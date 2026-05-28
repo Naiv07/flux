@@ -153,10 +153,10 @@ export function TransferCard({
               <CheckCircle size={16} weight="bold" color="#00ff88" />
             ) : isCancelled ? (
               <X size={16} weight="bold" color="#ff6b6b" />
-            ) : directionRef.current === "send" ? (
-              <ArrowUp size={16} weight="bold" color="#6c63ff" />
-            ) : (
+            ) : isReceiving || (!isSending && progress.transferred > 0) ? (
               <ArrowDown size={16} weight="bold" color="#89CFF0" />
+            ) : (
+              <ArrowUp size={16} weight="bold" color="#6c63ff" />
             )}
           </div>
 
@@ -230,49 +230,76 @@ export function TransferCard({
           textAlign: "center",
           color: progressColor,
         }}>
-          {isComplete ? "Transfer complete"
-            : isCancelled ? "Transfer cancelled"
-            : isPaused ? "Paused"
-            : isSending ? "Sending..."
-            : isReceiving ? "Receiving..."
+          {isComplete
+            ? "Transfer complete ✓"
+            : isCancelled
+            ? "Transfer cancelled"
+            : isPaused
+            ? "Paused — tap Resume to continue"
+            : isSending
+            ? "Sending..."
+            : isReceiving
+            ? "Receiving..."
             : ""}
         </p>
 
-        {/* Pause / Resume / Cancel — only when active */}
+        {/* Controls — show for both sender and receiver while transfer active */}
         <div style={{
           display: "flex",
           gap: "8px",
-          opacity: isActive ? 1 : 0,
-          pointerEvents: isActive ? "auto" : "none",
+          opacity: (isSending || isReceiving || isPaused) ? 1 : 0,
+          pointerEvents: (isSending || isReceiving || isPaused) ? "auto" : "none",
           transition: "opacity 0.2s ease",
         }}>
-          {/* Single stable button — never unmounts, avoids Android tap-miss on remount */}
-          <motion.button
-            whileTap={{ scale: 0.98 }}
-            onClick={isPaused ? resumeTransfer : pauseTransfer}
-            style={{
-              flex: 1,
-              background: isPaused ? "rgba(108,99,255,0.15)" : "rgba(251,191,36,0.1)",
-              border: `1px solid ${isPaused ? "rgba(108,99,255,0.3)" : "rgba(251,191,36,0.3)"}`,
-              borderRadius: "10px",
-              padding: "10px",
-              fontSize: "13px",
-              fontWeight: "600",
-              color: isPaused ? "#6c63ff" : "#fbbf24",
-              cursor: "pointer",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: "6px",
-              touchAction: "manipulation",
-            }}
-          >
-            {isPaused ? <Play size={14} weight="bold" /> : <Pause size={14} weight="bold" />}
-            {isPaused ? "Resume" : "Pause"}
-          </motion.button>
+          {isPaused ? (
+            <button
+              onClick={resumeTransfer}
+              style={{
+                flex: 1,
+                background: "rgba(108,99,255,0.15)",
+                border: "1px solid rgba(108,99,255,0.3)",
+                borderRadius: "10px",
+                padding: "10px",
+                fontSize: "13px",
+                fontWeight: "600",
+                color: "#6c63ff",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "6px",
+                touchAction: "manipulation",
+              }}
+            >
+              <Play size={14} weight="bold" />
+              Resume
+            </button>
+          ) : (
+            <button
+              onClick={pauseTransfer}
+              style={{
+                flex: 1,
+                background: "rgba(251,191,36,0.1)",
+                border: "1px solid rgba(251,191,36,0.3)",
+                borderRadius: "10px",
+                padding: "10px",
+                fontSize: "13px",
+                fontWeight: "600",
+                color: "#fbbf24",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: "6px",
+                touchAction: "manipulation",
+              }}
+            >
+              <Pause size={14} weight="bold" />
+              Pause
+            </button>
+          )}
 
-          <motion.button
-            whileTap={{ scale: 0.98 }}
+          <button
             onClick={cancelTransfer}
             style={{
               flex: 1,
@@ -293,7 +320,7 @@ export function TransferCard({
           >
             <X size={14} weight="bold" />
             Cancel
-          </motion.button>
+          </button>
         </div>
       </div>
     </motion.div>
