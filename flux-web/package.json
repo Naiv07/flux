@@ -15,6 +15,7 @@
     "@react-three/fiber": "^9.6.1",
     "@rive-app/react-canvas": "^4.28.5",
     "framer-motion": "^12.39.0",
+    "jsqr": "^1.4.0",
     "lucide-react": "^1.16.0",
     "qrcode.react": "^4.2.0",
     "react": "^19.2.6",
