@@ -1,15 +1,9 @@
+import { useState } from "react";
 import { motion } from "framer-motion";
-import { WifiHigh, WifiSlash, Spinner, ArrowLeft } from "@phosphor-icons/react";
+import { WifiHigh, WifiSlash, Spinner, ArrowLeft, QrCode } from "@phosphor-icons/react";
 import type { ConnectionState } from "../types";
+import { QRModal } from "./QRModal";
 
-
-interface Props {
-  connectionState: ConnectionState;
-  roomCode: string;
-  setRoomCode: (code: string) => void;
-  connect: (code: string) => void;
-  disconnect: () => void;
-}
 
 interface Props {
   connectionState: ConnectionState;
@@ -34,6 +28,7 @@ export function ConnectionCard({
 }: Props) {
   const isConnected = connectionState === "connected";
   const isConnecting = connectionState === "connecting";
+  const [showQR, setShowQR] = useState(false);
 
   return (
     <motion.div
@@ -189,28 +184,56 @@ export function ConnectionCard({
                   {roomCode}
                 </div>
 
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => {
-                    navigator.clipboard.writeText(roomCode);
-                  }}
-                  style={{
-                    marginTop: "12px",
-                    background: "rgba(255,255,255,0.05)",
-                    border: "1px solid rgba(255,255,255,0.1)",
-                    borderRadius: "10px",
-                    padding: "8px 16px",
-                    fontSize: "12px",
-                    fontWeight: "600",
-                    color: "#e8e8f0",
-                    cursor: "pointer",
-                    width: "100%",
-                  }}
-                >
-                  Copy Code
-                </motion.button>
+                <div style={{
+                  display: "flex",
+                  gap: "8px",
+                  marginTop: "12px",
+                }}>
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => navigator.clipboard.writeText(roomCode)}
+                    style={{
+                      flex: 1,
+                      background: "rgba(255,255,255,0.05)",
+                      border: "1px solid rgba(255,255,255,0.1)",
+                      borderRadius: "10px",
+                      padding: "8px 16px",
+                      fontSize: "12px",
+                      fontWeight: "600",
+                      color: "#e8e8f0",
+                      cursor: "pointer",
+                    }}
+                  >
+                    Copy Code
+                  </motion.button>
 
+                  <motion.button
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => setShowQR(true)}
+                    style={{
+                      flex: 1,
+                      background: "rgba(108,99,255,0.1)",
+                      border: "1px solid rgba(108,99,255,0.25)",
+                      borderRadius: "10px",
+                      padding: "8px 16px",
+                      fontSize: "12px",
+                      fontWeight: "600",
+                      color: "#6c63ff",
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: "6px",
+                    }}
+                  >
+                    <QrCode size={14} weight="bold" />
+                    QR Code
+                  </motion.button>
+                </div>
+
+                {/* Share Link button */}
                 <motion.button
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
@@ -221,7 +244,6 @@ export function ConnectionCard({
                       : navigator.clipboard.writeText(url);
                   }}
                   style={{
-                    marginTop: "8px",
                     background: "rgba(0,212,255,0.08)",
                     border: "1px solid rgba(0,212,255,0.2)",
                     borderRadius: "10px",
@@ -285,6 +307,13 @@ export function ConnectionCard({
             </>
           )}
         </motion.div>
+      )}
+
+      {showQR && (
+        <QRModal
+          roomCode={roomCode}
+          onClose={() => setShowQR(false)}
+        />
       )}
 
       {/* Connected */}
