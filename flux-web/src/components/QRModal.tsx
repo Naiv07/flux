@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { QRCodeSVG } from "qrcode.react";
 import { X, Copy, Check, ShareNetwork } from "@phosphor-icons/react";
@@ -30,7 +31,7 @@ export function QRModal({ roomCode, onClose }: Props) {
     }
   };
 
-  return (
+  return createPortal(
     <AnimatePresence>
       <motion.div
         initial={{ opacity: 0 }}
@@ -40,68 +41,74 @@ export function QRModal({ roomCode, onClose }: Props) {
         style={{
           position: "fixed",
           inset: 0,
-          background: "rgba(0,0,0,0.75)",
-          backdropFilter: "blur(12px)",
-          WebkitBackdropFilter: "blur(12px)",
-          zIndex: 100,
+          background: "rgba(0,0,0,0.85)",
+          backdropFilter: "blur(16px)",
+          WebkitBackdropFilter: "blur(16px)",
+          zIndex: 9999,
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          padding: "24px",
+          padding: "20px",
         }}
       >
         <motion.div
-          initial={{ opacity: 0, scale: 0.85, y: 24 }}
+          initial={{ opacity: 0, scale: 0.88, y: 20 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.85, y: 24 }}
-          transition={{ type: "spring", damping: 20, stiffness: 300 }}
+          exit={{ opacity: 0, scale: 0.88, y: 20 }}
+          transition={{ type: "spring", damping: 22, stiffness: 320 }}
           onClick={(e) => e.stopPropagation()}
           style={{
-            background: "rgba(10,10,30,0.97)",
-            border: "1px solid rgba(108,99,255,0.25)",
+            background: "linear-gradient(160deg, rgba(18,10,40,0.98) 0%, rgba(8,8,32,0.98) 100%)",
+            border: "1px solid rgba(108,99,255,0.3)",
             borderRadius: "28px",
-            padding: "28px",
+            padding: "24px",
             display: "flex",
             flexDirection: "column",
             alignItems: "center",
-            gap: "20px",
+            gap: "16px",
             width: "100%",
-            maxWidth: "340px",
-            boxShadow: "0 0 60px rgba(108,99,255,0.2), 0 0 120px rgba(0,212,255,0.08)",
+            maxWidth: "320px",
+            boxShadow: `
+              0 0 0 1px rgba(108,99,255,0.1),
+              0 20px 60px rgba(0,0,0,0.6),
+              0 0 80px rgba(108,99,255,0.12),
+              0 0 160px rgba(0,212,255,0.06)
+            `,
           }}
         >
           {/* Header */}
           <div style={{
             display: "flex",
-            alignItems: "flex-start",
+            alignItems: "center",
             justifyContent: "space-between",
             width: "100%",
           }}>
             <div>
               <p style={{
-                fontSize: "17px",
+                fontSize: "16px",
                 fontWeight: "700",
                 color: "#e8e8f0",
+                letterSpacing: "-0.2px",
               }}>
                 Scan to Connect
               </p>
               <p style={{
-                fontSize: "12px",
+                fontSize: "11px",
                 color: "#6b7280",
-                marginTop: "3px",
+                marginTop: "2px",
               }}>
                 Point camera at QR — connects instantly
               </p>
             </div>
             <motion.button
-              whileTap={{ scale: 0.9 }}
+              whileTap={{ scale: 0.88 }}
               onClick={onClose}
               style={{
-                background: "rgba(255,255,255,0.06)",
+                background: "rgba(255,255,255,0.05)",
                 border: "1px solid rgba(255,255,255,0.08)",
                 borderRadius: "10px",
-                width: "32px",
-                height: "32px",
+                width: "30px",
+                height: "30px",
                 cursor: "pointer",
                 display: "flex",
                 alignItems: "center",
@@ -109,135 +116,130 @@ export function QRModal({ roomCode, onClose }: Props) {
                 flexShrink: 0,
               }}
             >
-              <X size={14} weight="bold" color="#6b7280" />
+              <X size={13} weight="bold" color="#6b7280" />
             </motion.button>
           </div>
 
-          {/* QR Code with glow */}
-          <div style={{ position: "relative" }}>
-            {/* Glow layers */}
+          {/* QR with glow */}
+          <div style={{ position: "relative", padding: "8px" }}>
+            <motion.div
+              animate={{ opacity: [0.4, 0.7, 0.4] }}
+              transition={{ repeat: Infinity, duration: 3, ease: "easeInOut" }}
+              style={{
+                position: "absolute",
+                inset: "-4px",
+                borderRadius: "22px",
+                background: "radial-gradient(ellipse, rgba(108,99,255,0.2) 0%, rgba(0,212,255,0.08) 60%, transparent 100%)",
+                filter: "blur(12px)",
+              }}
+            />
             <div style={{
               position: "absolute",
-              inset: "-12px",
-              borderRadius: "24px",
-              background: "radial-gradient(circle, rgba(108,99,255,0.15) 0%, transparent 70%)",
-              filter: "blur(8px)",
+              inset: "0px",
+              borderRadius: "20px",
+              border: "1px solid rgba(108,99,255,0.25)",
             }} />
-            <div style={{
-              position: "absolute",
-              inset: "-8px",
-              borderRadius: "22px",
-              border: "1px solid rgba(108,99,255,0.2)",
-            }} />
-
-            {/* QR Container */}
             <div style={{
               background: "#ffffff",
-              borderRadius: "18px",
-              padding: "16px",
+              borderRadius: "16px",
+              padding: "14px",
               position: "relative",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
+              boxShadow: "inset 0 2px 8px rgba(0,0,0,0.08)",
             }}>
               <QRCodeSVG
                 value={url}
-                size={190}
+                size={176}
                 bgColor="#ffffff"
-                fgColor="#080820"
+                fgColor="#06061a"
                 level="M"
                 includeMargin={false}
                 imageSettings={{
                   src: "/favicon.svg",
                   x: undefined,
                   y: undefined,
-                  height: 28,
-                  width: 28,
+                  height: 26,
+                  width: 26,
                   excavate: true,
                 }}
               />
             </div>
           </div>
 
-          {/* Room code pill */}
+          {/* Divider */}
+          <div style={{
+            width: "100%",
+            height: "1px",
+            background: "rgba(255,255,255,0.05)",
+          }} />
+
+          {/* Room code */}
           <div style={{
             display: "flex",
+            flexDirection: "column",
             alignItems: "center",
-            gap: "10px",
-            background: "rgba(108,99,255,0.08)",
-            border: "1px solid rgba(108,99,255,0.2)",
-            borderRadius: "14px",
-            padding: "12px 18px",
+            gap: "4px",
             width: "100%",
-            justifyContent: "center",
           }}>
-            <div>
-              <p style={{
-                fontSize: "10px",
-                color: "#6b7280",
-                textTransform: "uppercase",
-                letterSpacing: "1.5px",
-                textAlign: "center",
-                marginBottom: "4px",
-              }}>
-                Room Code
-              </p>
-              <p style={{
-                fontSize: "26px",
-                fontWeight: "700",
-                color: "#6c63ff",
-                letterSpacing: "8px",
-                fontFamily: "monospace",
-                textAlign: "center",
-              }}>
-                {roomCode}
-              </p>
-            </div>
+            <p style={{
+              fontSize: "10px",
+              color: "#4b5563",
+              textTransform: "uppercase",
+              letterSpacing: "2px",
+            }}>
+              Room Code
+            </p>
+            <p style={{
+              fontSize: "28px",
+              fontWeight: "800",
+              color: "#6c63ff",
+              letterSpacing: "10px",
+              fontFamily: "monospace",
+            }}>
+              {roomCode}
+            </p>
           </div>
 
-          {/* Action buttons */}
-          <div style={{
-            display: "flex",
-            gap: "8px",
-            width: "100%",
-          }}>
+          {/* Buttons */}
+          <div style={{ display: "flex", gap: "8px", width: "100%" }}>
             <motion.button
-              whileTap={{ scale: 0.97 }}
+              whileTap={{ scale: 0.96 }}
               onClick={handleCopy}
               style={{
                 flex: 1,
                 background: copied
-                  ? "rgba(0,255,136,0.1)"
+                  ? "rgba(0,255,136,0.08)"
                   : "rgba(255,255,255,0.04)",
-                border: `1px solid ${copied ? "rgba(0,255,136,0.3)" : "rgba(255,255,255,0.08)"}`,
+                border: `1px solid ${copied
+                  ? "rgba(0,255,136,0.25)"
+                  : "rgba(255,255,255,0.08)"}`,
                 borderRadius: "12px",
-                padding: "10px",
+                padding: "10px 8px",
                 fontSize: "12px",
                 fontWeight: "600",
-                color: copied ? "#00ff88" : "#e8e8f0",
+                color: copied ? "#00ff88" : "#9ca3af",
                 cursor: "pointer",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                gap: "6px",
+                gap: "5px",
                 transition: "all 0.2s ease",
               }}
             >
               {copied
-                ? <><Check size={13} weight="bold" /> Copied!</>
-                : <><Copy size={13} weight="bold" /> Copy Link</>
+                ? <><Check size={12} weight="bold" /> Copied!</>
+                : <><Copy size={12} weight="bold" /> Copy Link</>
               }
             </motion.button>
 
             <motion.button
-              whileTap={{ scale: 0.97 }}
+              whileTap={{ scale: 0.96 }}
               onClick={handleShare}
               style={{
                 flex: 1,
-                background: "rgba(0,212,255,0.08)",
+                background: "rgba(0,212,255,0.07)",
                 border: "1px solid rgba(0,212,255,0.2)",
                 borderRadius: "12px",
-                padding: "10px",
+                padding: "10px 8px",
                 fontSize: "12px",
                 fontWeight: "600",
                 color: "#00d4ff",
@@ -245,24 +247,26 @@ export function QRModal({ roomCode, onClose }: Props) {
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                gap: "6px",
+                gap: "5px",
               }}
             >
-              <ShareNetwork size={13} weight="bold" />
+              <ShareNetwork size={12} weight="bold" />
               Share
             </motion.button>
           </div>
 
           {/* Tip */}
           <p style={{
-            fontSize: "11px",
+            fontSize: "10px",
             color: "#374151",
             textAlign: "center",
+            lineHeight: "1.5",
           }}>
-            Works offline on the same network · tap outside to close
+            Works offline on the same network
           </p>
         </motion.div>
       </motion.div>
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   );
 }
