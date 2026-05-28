@@ -30,10 +30,14 @@ export function QRScanner({ onScan, onClose }: Props) {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({
           video: {
-            facingMode: "environment", // rear camera
-            width: { ideal: 1280 },
-            height: { ideal: 720 },
-          },
+            facingMode: { exact: "environment" }, // force rear camera
+            width: { ideal: 1920, min: 1280 },
+            height: { ideal: 1080, min: 720 },
+            focusMode: "continuous",              // autofocus
+            advanced: [
+              { focusMode: "continuous" } as any,
+            ],
+          } as MediaTrackConstraints,
         });
 
         if (!active) {
@@ -43,9 +47,20 @@ export function QRScanner({ onScan, onClose }: Props) {
 
         streamRef.current = stream;
 
-        // Check torch support
+        // Apply autofocus to track
         const track = stream.getVideoTracks()[0];
         torchRef.current = track;
+
+        try {
+          await track.applyConstraints({
+            advanced: [
+              { focusMode: "continuous" } as any,
+            ],
+          });
+        } catch {
+          // Focus constraints not supported — ignore
+        }
+
         const caps = track.getCapabilities() as any;
         if (caps?.torch) setTorchSupported(true);
 
@@ -93,8 +108,8 @@ export function QRScanner({ onScan, onClose }: Props) {
     const ctx = canvas.getContext("2d", { willReadFrequently: true });
     if (!ctx) return;
 
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
+    canvas.width = video.videoWidth || 1280;
+    canvas.height = video.videoHeight || 720;
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
