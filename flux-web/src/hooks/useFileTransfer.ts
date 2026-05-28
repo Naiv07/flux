@@ -119,6 +119,28 @@ export function useFileTransfer(channel: RTCDataChannel | null) {
     }, 2000);
   }, [sendControl]);
 
+  const flushWriteBuffer = useCallback(async (state: any) => {
+    if (!state.writeBuffer?.length) return;
+
+    const chunks = state.writeBuffer.splice(0); // take all, clear buffer
+    state.bufferedBytes = 0;
+
+    if (state.writable) {
+      // Stream API — combine into one buffer and write once
+      const total = chunks.reduce((s: number, c: ArrayBuffer) => s + c.byteLength, 0);
+      const combined = new Uint8Array(total);
+      let offset = 0;
+      for (const chunk of chunks) {
+        combined.set(new Uint8Array(chunk), offset);
+        offset += chunk.byteLength;
+      }
+      await state.writable.write(combined.buffer);
+    } else {
+      // Blob method — push to chunks array
+      state.chunks.push(...chunks);
+    }
+  }, []);
+
   const handleMessage = useCallback(
     (e: MessageEvent) => {
       if (typeof e.data === "string") {
@@ -193,16 +215,9 @@ export function useFileTransfer(channel: RTCDataChannel | null) {
           const state = receivingRef.current;
           if (!state) return;
 
-          const flushRemaining = async () => {
-            // Flush any pending batched chunks first
-            if (state.pendingChunks?.length) {
-              const toWrite = state.pendingChunks.splice(0);
-              if (state.writable) {
-                for (const chunk of toWrite) await state.writable.write(chunk);
-              } else {
-                state.chunks.push(...toWrite);
-              }
-            }
+          (async () => {
+            // Flush any remaining buffered chunks first
+            await flushWriteBuffer(state);
 
             if (state.writable) {
               await state.writable.close();
@@ -224,9 +239,7 @@ export function useFileTransfer(channel: RTCDataChannel | null) {
               status: "complete",
               percentage: 100,
             }));
-          };
-
-          flushRemaining();
+          })();
         }
 
         if (meta.type === "transfer-paused") {
@@ -282,32 +295,15 @@ export function useFileTransfer(channel: RTCDataChannel | null) {
       if (e.data instanceof ArrayBuffer) {
         const state = receivingRef.current;
         if (!state) return;
-
-        // Drop chunks if paused — sender should have stopped but just in case
         if (pauseRef.current) return;
 
-        // Accumulate into pending batch
-        state.pendingChunks = state.pendingChunks || [];
-        state.pendingChunks.push(e.data);
+        // Add to write buffer
+        state.writeBuffer = state.writeBuffer || [];
+        state.writeBuffer.push(e.data);
         state.received += e.data.byteLength;
+        state.bufferedBytes = (state.bufferedBytes || 0) + e.data.byteLength;
 
-        // Flush in 512KB batches — fewer I/O calls, lower overhead
-        const WRITE_BATCH_SIZE = 512 * 1024;
-        const pendingSize = state.pendingChunks.reduce(
-          (sum: number, c: ArrayBuffer) => sum + c.byteLength, 0
-        );
-
-        if (pendingSize >= WRITE_BATCH_SIZE) {
-          const toWrite = state.pendingChunks.splice(0);
-          if (state.writable) {
-            (async () => {
-              for (const chunk of toWrite) await state.writable.write(chunk);
-            })();
-          } else {
-            state.chunks.push(...toWrite);
-          }
-        }
-
+        // Update progress immediately from memory — no I/O needed
         updateProgressThrottled({
           fileName: state.fileName,
           fileSize: state.fileSize,
@@ -316,31 +312,26 @@ export function useFileTransfer(channel: RTCDataChannel | null) {
           status: "receiving",
         });
 
+        // Flush to disk when buffer hits 2MB
+        const FLUSH_SIZE = 2 * 1024 * 1024;
+        if (state.bufferedBytes >= FLUSH_SIZE) {
+          flushWriteBuffer(state);
+        }
+
+        // Bandwidth feedback
         const now = Date.now();
         const elapsed = now - lastSpeedCheckRef.current;
-
         if (elapsed >= 2000) {
           const bytesReceived = state.received - bytesAtLastCheckRef.current;
           const bytesPerSecond = (bytesReceived / elapsed) * 1000;
           const mbps = (bytesPerSecond * 8) / 1_000_000;
-
-          let suggestedDelay = 0;
-          if (mbps < 3) suggestedDelay = 30;
-          else if (mbps < 8) suggestedDelay = 15;
-          else if (mbps < 20) suggestedDelay = 5;
-
-          sendControl({
-            type: "bandwidth-adjust",
-            delay: suggestedDelay,
-            mbps: Math.round(mbps),
-          });
-
           lastSpeedCheckRef.current = now;
           bytesAtLastCheckRef.current = state.received;
+          if (isDev) console.log(`[Flux] Speed: ${Math.round(mbps)} Mbps`);
         }
       }
     },
-    [sendControl, updateProgressThrottled]
+    [sendControl, updateProgressThrottled, flushWriteBuffer]
   );
 
   const sendFile = useCallback(
