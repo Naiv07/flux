@@ -186,6 +186,28 @@ export function ConnectionCard({
                   {roomCode}
                 </div>
 
+                {connectionStatus && (
+                  <p style={{
+                    fontSize: "12px",
+                    color: "#6c63ff",
+                    marginTop: "10px",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: "6px",
+                  }}>
+                    <span style={{
+                      display: "inline-block",
+                      width: "6px",
+                      height: "6px",
+                      borderRadius: "50%",
+                      background: "#6c63ff",
+                      boxShadow: "0 0 6px #6c63ff",
+                    }} />
+                    {connectionStatus}
+                  </p>
+                )}
+
                 {/* Primary actions row */}
                 <div style={{
                   display: "flex",

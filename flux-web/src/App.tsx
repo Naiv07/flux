@@ -57,7 +57,7 @@ function App() {
       setTimeout(() => {
         connect(code);
         isConnectingRef.current = false;
-      }, 300);
+      }, 50);
     } else {
       isConnectingRef.current = false;
     }
