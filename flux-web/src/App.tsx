@@ -10,7 +10,6 @@ import { TransferCard } from "./components/TransferCard";
 import { ModeSelectCard } from "./components/ModeSelectCard";
 import { DiscoverCard } from "./components/DiscoverCard";
 import { OfflineMode } from "./components/OfflineMode";
-import { OfflineBanner } from "./components/OfflineBanner";
 
  const SIGNALING_SERVER_URL =
   import.meta.env.VITE_SIGNALING_SERVER ||
@@ -28,6 +27,18 @@ function App() {
 
   const [mode, setMode] = useState<"send" | "receive" | null>(null);
   const [showOfflineMode, setShowOfflineMode] = useState(false);
+  const [isOffline, setIsOffline] = useState(!navigator.onLine);
+
+  useEffect(() => {
+    const handleOnline = () => setIsOffline(false);
+    const handleOffline = () => setIsOffline(true);
+    window.addEventListener("online", handleOnline);
+    window.addEventListener("offline", handleOffline);
+    return () => {
+      window.removeEventListener("online", handleOnline);
+      window.removeEventListener("offline", handleOffline);
+    };
+  }, []);
   const onMessageRef = useRef<((e: MessageEvent) => void) | null>(null);
   const isConnectingRef = useRef(false);
 
@@ -190,7 +201,64 @@ function App() {
         gap: "16px",
         margin: "0 auto",
       }}>
-        <OfflineBanner onOfflineModeClick={() => setShowOfflineMode(true)} />
+        {isOffline && (
+          <div style={{
+            background: "rgba(108,99,255,0.08)",
+            border: "1px solid rgba(108,99,255,0.2)",
+            borderRadius: "16px",
+            padding: "12px 16px",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            width: "100%",
+            gap: "12px",
+            boxSizing: "border-box",
+          }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+              <div style={{
+                width: "32px",
+                height: "32px",
+                borderRadius: "8px",
+                background: "rgba(108,99,255,0.15)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexShrink: 0,
+              }}>
+                ⚡
+              </div>
+              <div>
+                <p style={{
+                  fontSize: "13px",
+                  fontWeight: "600",
+                  color: "#e8e8f0",
+                }}>
+                  You're offline
+                </p>
+                <p style={{ fontSize: "11px", color: "#6b7280" }}>
+                  Use offline mode for local transfers
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => setShowOfflineMode(true)}
+              style={{
+                background: "linear-gradient(135deg, #6c63ff, #00d4ff)",
+                border: "none",
+                borderRadius: "10px",
+                padding: "8px 14px",
+                fontSize: "12px",
+                fontWeight: "700",
+                color: "white",
+                cursor: "pointer",
+                whiteSpace: "nowrap",
+                flexShrink: 0,
+              }}
+            >
+              Use Offline
+            </button>
+          </div>
+        )}
         <NetworkBanner fileSize={progress.fileSize} />
 
         {!mode && (
