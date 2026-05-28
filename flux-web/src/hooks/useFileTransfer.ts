@@ -5,7 +5,7 @@ import {
 } from "../lib/transferStore";
 
 const isDev = import.meta.env.DEV;
-const WEBRTC_CHUNK_SIZE = 256 * 1024; // 256KB for WebRTC
+const WEBRTC_CHUNK_SIZE = 128 * 1024; // 128KB for WebRTC
 const RELAY_CHUNK_SIZE  =  64 * 1024; //  64KB for relay
 
 export type TransferStatus =
@@ -193,27 +193,40 @@ export function useFileTransfer(channel: RTCDataChannel | null) {
           const state = receivingRef.current;
           if (!state) return;
 
-          if (state.writable) {
-            state.writable.close().then(() => {
-              if (isDev) console.log("[Flux] File saved:", state.fileName);
-            });
-          } else {
-            const blob = new Blob(state.chunks, { type: state.fileType });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement("a");
-            a.href = url;
-            a.download = state.fileName;
-            a.click();
-            URL.revokeObjectURL(url);
-          }
+          const flushRemaining = async () => {
+            // Flush any pending batched chunks first
+            if (state.pendingChunks?.length) {
+              const toWrite = state.pendingChunks.splice(0);
+              if (state.writable) {
+                for (const chunk of toWrite) await state.writable.write(chunk);
+              } else {
+                state.chunks.push(...toWrite);
+              }
+            }
 
-          deleteTransfer(state.id);
-          receivingRef.current = null;
-          setProgress((prev) => ({
-            ...prev,
-            status: "complete",
-            percentage: 100,
-          }));
+            if (state.writable) {
+              await state.writable.close();
+              if (isDev) console.log("[Flux] File saved:", state.fileName);
+            } else {
+              const blob = new Blob(state.chunks, { type: state.fileType });
+              const url = URL.createObjectURL(blob);
+              const a = document.createElement("a");
+              a.href = url;
+              a.download = state.fileName;
+              a.click();
+              URL.revokeObjectURL(url);
+            }
+
+            deleteTransfer(state.id);
+            receivingRef.current = null;
+            setProgress((prev) => ({
+              ...prev,
+              status: "complete",
+              percentage: 100,
+            }));
+          };
+
+          flushRemaining();
         }
 
         if (meta.type === "transfer-paused") {
@@ -273,45 +286,57 @@ export function useFileTransfer(channel: RTCDataChannel | null) {
         // Drop chunks if paused — sender should have stopped but just in case
         if (pauseRef.current) return;
 
-        const updateProgress = () => {
-          state.received += e.data.byteLength;
-          updateProgressThrottled({
-            fileName: state.fileName,
-            fileSize: state.fileSize,
-            transferred: state.received,
-            percentage: Math.round((state.received / state.fileSize) * 100),
-            status: "receiving",
+        // Accumulate into pending batch
+        state.pendingChunks = state.pendingChunks || [];
+        state.pendingChunks.push(e.data);
+        state.received += e.data.byteLength;
+
+        // Flush in 512KB batches — fewer I/O calls, lower overhead
+        const WRITE_BATCH_SIZE = 512 * 1024;
+        const pendingSize = state.pendingChunks.reduce(
+          (sum: number, c: ArrayBuffer) => sum + c.byteLength, 0
+        );
+
+        if (pendingSize >= WRITE_BATCH_SIZE) {
+          const toWrite = state.pendingChunks.splice(0);
+          if (state.writable) {
+            (async () => {
+              for (const chunk of toWrite) await state.writable.write(chunk);
+            })();
+          } else {
+            state.chunks.push(...toWrite);
+          }
+        }
+
+        updateProgressThrottled({
+          fileName: state.fileName,
+          fileSize: state.fileSize,
+          transferred: state.received,
+          percentage: Math.round((state.received / state.fileSize) * 100),
+          status: "receiving",
+        });
+
+        const now = Date.now();
+        const elapsed = now - lastSpeedCheckRef.current;
+
+        if (elapsed >= 2000) {
+          const bytesReceived = state.received - bytesAtLastCheckRef.current;
+          const bytesPerSecond = (bytesReceived / elapsed) * 1000;
+          const mbps = (bytesPerSecond * 8) / 1_000_000;
+
+          let suggestedDelay = 0;
+          if (mbps < 3) suggestedDelay = 30;
+          else if (mbps < 8) suggestedDelay = 15;
+          else if (mbps < 20) suggestedDelay = 5;
+
+          sendControl({
+            type: "bandwidth-adjust",
+            delay: suggestedDelay,
+            mbps: Math.round(mbps),
           });
 
-          const now = Date.now();
-          const elapsed = now - lastSpeedCheckRef.current;
-
-          if (elapsed >= 2000) {
-            const bytesReceived = state.received - bytesAtLastCheckRef.current;
-            const bytesPerSecond = (bytesReceived / elapsed) * 1000;
-            const mbps = (bytesPerSecond * 8) / 1_000_000;
-
-            let suggestedDelay = 0;
-            if (mbps < 3) suggestedDelay = 30;
-            else if (mbps < 8) suggestedDelay = 15;
-            else if (mbps < 20) suggestedDelay = 5;
-
-            sendControl({
-              type: "bandwidth-adjust",
-              delay: suggestedDelay,
-              mbps: Math.round(mbps),
-            });
-
-            lastSpeedCheckRef.current = now;
-            bytesAtLastCheckRef.current = state.received;
-          }
-        };
-
-        if (state.writable) {
-          state.writable.write(e.data).then(updateProgress);
-        } else {
-          state.chunks.push(e.data);
-          updateProgress();
+          lastSpeedCheckRef.current = now;
+          bytesAtLastCheckRef.current = state.received;
         }
       }
     },
