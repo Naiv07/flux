@@ -5,7 +5,8 @@ import {
 } from "../lib/transferStore";
 
 const isDev = import.meta.env.DEV;
-const CHUNK_SIZE = 64 * 1024;
+const WEBRTC_CHUNK_SIZE = 256 * 1024; // 256KB for WebRTC
+const RELAY_CHUNK_SIZE  =  64 * 1024; //  64KB for relay
 
 export type TransferStatus =
   | "idle"
@@ -322,6 +323,9 @@ export function useFileTransfer(channel: RTCDataChannel | null) {
       const ch = channelRef.current;
       if (!ch || ch.readyState !== "open") return;
 
+      const isRelay = !(ch instanceof RTCDataChannel);
+      const CHUNK_SIZE = isRelay ? RELAY_CHUNK_SIZE : WEBRTC_CHUNK_SIZE;
+
       cancelRef.current = false;
       pauseRef.current = false;
       resumeResolverRef.current = null;
@@ -352,9 +356,11 @@ export function useFileTransfer(channel: RTCDataChannel | null) {
         status: "sending",
       });
 
-      // Only set bufferedAmountLowThreshold for real RTCDataChannel
+      // Scale backpressure threshold with channel type
       if ("bufferedAmountLowThreshold" in ch) {
-        (ch as RTCDataChannel).bufferedAmountLowThreshold = 1024 * 1024;
+        (ch as RTCDataChannel).bufferedAmountLowThreshold = isRelay
+          ? 512 * 1024      // 512KB for relay
+          : 4 * 1024 * 1024; // 4MB for WebRTC
       }
 
       try {
