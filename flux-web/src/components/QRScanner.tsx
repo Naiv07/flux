@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Flashlight, FlashlightSlash, Camera } from "@phosphor-icons/react";
+import { X, Lightning, LightningSlash, Camera } from "@phosphor-icons/react";
 import jsQR from "jsqr";
 
 interface Props {
@@ -401,8 +401,8 @@ export function QRScanner({ onScan, onClose }: Props) {
               }}
             >
               {torch
-                ? <><FlashlightSlash size={16} weight="bold" /> Off</>
-                : <><Flashlight size={16} weight="bold" /> Flash</>
+                ? <><LightningSlash size={16} weight="bold" /> Off</>
+                : <><Lightning size={16} weight="bold" /> Flash</>
               }
             </motion.button>
           ) : (
