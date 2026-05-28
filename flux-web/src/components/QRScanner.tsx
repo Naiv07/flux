@@ -36,14 +36,48 @@ export function QRScanner({ onScan, onClose }: Props) {
 
     const startCamera = async () => {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            facingMode: { exact: "environment" },
-            width: { ideal: 1920, min: 1280 },
-            height: { ideal: 1080, min: 720 },
-          } as MediaTrackConstraints,
-        });
+        // Try rear camera with high res first
+        let stream: MediaStream | null = null;
 
+        const constraints = [
+          // Best: exact rear camera, 4K
+          {
+            video: {
+              facingMode: { exact: "environment" },
+              width: { ideal: 3840 },
+              height: { ideal: 2160 },
+            }
+          },
+          // Good: exact rear camera, 1080p
+          {
+            video: {
+              facingMode: { exact: "environment" },
+              width: { ideal: 1920 },
+              height: { ideal: 1080 },
+            }
+          },
+          // Fallback: any rear camera
+          {
+            video: {
+              facingMode: "environment",
+              width: { ideal: 1280 },
+              height: { ideal: 720 },
+            }
+          },
+          // Last resort: any camera
+          { video: true }
+        ];
+
+        for (const constraint of constraints) {
+          try {
+            stream = await navigator.mediaDevices.getUserMedia(constraint);
+            break;
+          } catch {
+            continue;
+          }
+        }
+
+        if (!stream) throw new Error("No camera available");
         if (!active) {
           stream.getTracks().forEach((t) => t.stop());
           return;
@@ -54,12 +88,20 @@ export function QRScanner({ onScan, onClose }: Props) {
         const track = stream.getVideoTracks()[0];
         torchTrackRef.current = track;
 
+        // Log actual resolution for debugging
+        const settings = track.getSettings();
+        console.log("[QR] Camera:", settings.width, "x", settings.height, settings.facingMode);
+
+        // Apply autofocus
         try {
           await track.applyConstraints({
-            advanced: [{ focusMode: "continuous" } as any],
+            advanced: [
+              { focusMode: "continuous" } as any,
+              { zoom: 1.0 } as any,
+            ],
           });
         } catch {
-          // Focus not supported
+          // Not supported — ignore
         }
 
         const caps = track.getCapabilities() as any;
@@ -67,15 +109,15 @@ export function QRScanner({ onScan, onClose }: Props) {
 
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
-          videoRef.current.play();
+          await videoRef.current.play();
         }
       } catch (err: any) {
         if (err.name === "NotAllowedError") {
           setError("Camera permission denied. Please allow camera access.");
         } else if (err.name === "NotFoundError") {
-          setError("No rear camera found on this device.");
+          setError("No camera found on this device.");
         } else {
-          setError("Could not start camera.");
+          setError("Could not start camera. Please try again.");
         }
       }
     };
@@ -103,8 +145,10 @@ export function QRScanner({ onScan, onClose }: Props) {
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+    // Try both inversion modes for better detection in varied lighting
     const code = jsQR(imageData.data, imageData.width, imageData.height, {
-      inversionAttempts: "dontInvert",
+      inversionAttempts: "attemptBoth",
     });
 
     if (code?.data) {
@@ -220,6 +264,21 @@ export function QRScanner({ onScan, onClose }: Props) {
                   }}
                 />
               </motion.div>
+
+              {/* Distance hint */}
+              <div style={{
+                position: "absolute",
+                bottom: "30%",
+                left: "50%",
+                transform: "translateX(-50%)",
+                color: "rgba(255,255,255,0.6)",
+                fontSize: "12px",
+                fontWeight: "500",
+                whiteSpace: "nowrap",
+                textShadow: "0 1px 4px rgba(0,0,0,0.8)",
+              }}>
+                Hold steady · 15-20cm away
+              </div>
             </div>
           )}
 
