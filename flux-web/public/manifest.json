@@ -24,5 +24,6 @@
     }
   ],
   "screenshots": [],
-  "categories": ["utilities", "productivity"]
+  "categories": ["utilities", "productivity"],
+  "permissions": ["camera"]
 }

@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { WifiHigh, WifiSlash, Spinner, ArrowLeft, QrCode, Copy, ShareNetwork } from "@phosphor-icons/react";
 import type { ConnectionState } from "../types";
 import { QRModal } from "./QRModal";
+import { QRScanner } from "./QRScanner";
 
 
 interface Props {
@@ -29,6 +30,7 @@ export function ConnectionCard({
   const isConnected = connectionState === "connected";
   const isConnecting = connectionState === "connecting";
   const [showQR, setShowQR] = useState(false);
+  const [showScanner, setShowScanner] = useState(false);
 
   return (
     <motion.div
@@ -318,6 +320,55 @@ export function ConnectionCard({
               >
                 {isConnecting ? "Connecting..." : "Connect"}
               </motion.button>
+
+              {/* Divider */}
+              <div style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "12px",
+              }}>
+                <div style={{
+                  flex: 1,
+                  height: "1px",
+                  background: "rgba(255,255,255,0.06)",
+                }} />
+                <p style={{
+                  fontSize: "11px",
+                  color: "#374151",
+                  fontWeight: "500",
+                }}>
+                  or
+                </p>
+                <div style={{
+                  flex: 1,
+                  height: "1px",
+                  background: "rgba(255,255,255,0.06)",
+                }} />
+              </div>
+
+              {/* QR Scanner button */}
+              <motion.button
+                whileTap={{ scale: 0.97 }}
+                onClick={() => setShowScanner(true)}
+                style={{
+                  width: "100%",
+                  background: "rgba(108,99,255,0.08)",
+                  border: "1px solid rgba(108,99,255,0.2)",
+                  borderRadius: "12px",
+                  padding: "12px",
+                  fontSize: "13px",
+                  fontWeight: "600",
+                  color: "#6c63ff",
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  gap: "8px",
+                }}
+              >
+                <QrCode size={16} weight="bold" />
+                Scan QR Code
+              </motion.button>
             </>
           )}
         </motion.div>
@@ -327,6 +378,17 @@ export function ConnectionCard({
         <QRModal
           roomCode={roomCode}
           onClose={() => setShowQR(false)}
+        />
+      )}
+
+      {showScanner && (
+        <QRScanner
+          onScan={(code) => {
+            setShowScanner(false);
+            setRoomCode(code);
+            connect(code);
+          }}
+          onClose={() => setShowScanner(false)}
         />
       )}
 
