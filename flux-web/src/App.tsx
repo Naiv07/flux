@@ -25,6 +25,7 @@ function App() {
   }, []);
 
   const [mode, setMode] = useState<"send" | "receive" | null>(null);
+  const [showDisconnectedToast, setShowDisconnectedToast] = useState(false);
   const onMessageRef = useRef<((e: MessageEvent) => void) | null>(null);
   const isConnectingRef = useRef(false);
 
@@ -129,6 +130,20 @@ function App() {
   }, [isConnected]);
 
   useEffect(() => {
+    if (connectionState === "disconnected") {
+      setShowDisconnectedToast(true);
+      const timer = setTimeout(() => {
+        setShowDisconnectedToast(false);
+        disconnect();
+        setMode(null);
+        setRoomCode("");
+        isConnectingRef.current = false;
+      }, 1500);
+      return () => clearTimeout(timer);
+    }
+  }, [connectionState, disconnect]);
+
+  useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       if (progress.status === "sending" || progress.status === "receiving") {
         e.preventDefault();
@@ -175,6 +190,40 @@ function App() {
       width: "100%",
     }}>
       <ParticleBackground connected={isConnected} />
+
+      {/* Disconnected toast */}
+      {showDisconnectedToast && (
+        <div style={{
+          position: "fixed",
+          bottom: "max(32px, env(safe-area-inset-bottom))",
+          left: "50%",
+          transform: "translateX(-50%)",
+          background: "rgba(15,15,40,0.95)",
+          border: "1px solid rgba(255,100,100,0.2)",
+          borderRadius: "14px",
+          padding: "12px 20px",
+          display: "flex",
+          alignItems: "center",
+          gap: "10px",
+          zIndex: 999,
+          boxShadow: "0 8px 32px rgba(0,0,0,0.4)",
+          whiteSpace: "nowrap",
+        }}>
+          <div style={{
+            width: "8px",
+            height: "8px",
+            borderRadius: "50%",
+            background: "#ff6b6b",
+          }} />
+          <p style={{
+            fontSize: "13px",
+            fontWeight: "600",
+            color: "#e8e8f0",
+          }}>
+            Disconnected — returning to dashboard
+          </p>
+        </div>
+      )}
 
       <div style={{
         position: "relative",
