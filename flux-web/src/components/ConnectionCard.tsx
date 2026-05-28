@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { WifiHigh, WifiSlash, Spinner, ArrowLeft, QrCode } from "@phosphor-icons/react";
+import { WifiHigh, WifiSlash, Spinner, ArrowLeft, QrCode, Copy, ShareNetwork } from "@phosphor-icons/react";
 import type { ConnectionState } from "../types";
 import { QRModal } from "./QRModal";
 
@@ -184,41 +184,46 @@ export function ConnectionCard({
                   {roomCode}
                 </div>
 
+                {/* Primary actions row */}
                 <div style={{
                   display: "flex",
                   gap: "8px",
                   marginTop: "12px",
+                  width: "100%",
                 }}>
                   <motion.button
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
+                    whileTap={{ scale: 0.97 }}
                     onClick={() => navigator.clipboard.writeText(roomCode)}
                     style={{
                       flex: 1,
                       background: "rgba(255,255,255,0.05)",
                       border: "1px solid rgba(255,255,255,0.1)",
-                      borderRadius: "10px",
-                      padding: "8px 16px",
-                      fontSize: "12px",
+                      borderRadius: "12px",
+                      padding: "10px",
+                      fontSize: "13px",
                       fontWeight: "600",
                       color: "#e8e8f0",
                       cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: "6px",
                     }}
                   >
+                    <Copy size={14} weight="bold" />
                     Copy Code
                   </motion.button>
 
                   <motion.button
-                    whileHover={{ scale: 1.02 }}
-                    whileTap={{ scale: 0.98 }}
+                    whileTap={{ scale: 0.97 }}
                     onClick={() => setShowQR(true)}
                     style={{
                       flex: 1,
-                      background: "rgba(108,99,255,0.1)",
-                      border: "1px solid rgba(108,99,255,0.25)",
-                      borderRadius: "10px",
-                      padding: "8px 16px",
-                      fontSize: "12px",
+                      background: "rgba(108,99,255,0.12)",
+                      border: "1px solid rgba(108,99,255,0.3)",
+                      borderRadius: "12px",
+                      padding: "10px",
+                      fontSize: "13px",
                       fontWeight: "600",
                       color: "#6c63ff",
                       cursor: "pointer",
@@ -233,28 +238,37 @@ export function ConnectionCard({
                   </motion.button>
                 </div>
 
-                {/* Share Link button */}
+                {/* Share link — full width below */}
                 <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
+                  whileTap={{ scale: 0.97 }}
                   onClick={() => {
                     const url = `${window.location.origin}?code=${roomCode}`;
                     navigator.share
-                      ? navigator.share({ title: "Flux", text: "Join my Flux session", url })
+                      ? navigator.share({
+                          title: "Join my Flux session",
+                          text: `Use code ${roomCode} to receive files`,
+                          url,
+                        })
                       : navigator.clipboard.writeText(url);
                   }}
                   style={{
-                    background: "rgba(0,212,255,0.08)",
-                    border: "1px solid rgba(0,212,255,0.2)",
-                    borderRadius: "10px",
-                    padding: "8px 16px",
-                    fontSize: "12px",
+                    width: "100%",
+                    background: "rgba(0,212,255,0.06)",
+                    border: "1px solid rgba(0,212,255,0.15)",
+                    borderRadius: "12px",
+                    padding: "10px",
+                    fontSize: "13px",
                     fontWeight: "600",
                     color: "#00d4ff",
                     cursor: "pointer",
-                    width: "100%",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: "6px",
+                    marginTop: "4px",
                   }}
                 >
+                  <ShareNetwork size={14} weight="bold" />
                   Share Link
                 </motion.button>
               </div>
