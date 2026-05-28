@@ -9,6 +9,8 @@ import { ConnectionCard } from "./components/ConnectionCard";
 import { TransferCard } from "./components/TransferCard";
 import { ModeSelectCard } from "./components/ModeSelectCard";
 import { DiscoverCard } from "./components/DiscoverCard";
+import { OfflineMode } from "./components/OfflineMode";
+import { OfflineBanner } from "./components/OfflineBanner";
 
  const SIGNALING_SERVER_URL =
   import.meta.env.VITE_SIGNALING_SERVER ||
@@ -25,6 +27,7 @@ function App() {
   }, []);
 
   const [mode, setMode] = useState<"send" | "receive" | null>(null);
+  const [showOfflineMode, setShowOfflineMode] = useState(false);
   const onMessageRef = useRef<((e: MessageEvent) => void) | null>(null);
   const isConnectingRef = useRef(false);
 
@@ -187,9 +190,15 @@ function App() {
         gap: "16px",
         margin: "0 auto",
       }}>
+        <OfflineBanner onOfflineModeClick={() => setShowOfflineMode(true)} />
         <NetworkBanner fileSize={progress.fileSize} />
 
-        {!mode && <ModeSelectCard setMode={handleSetMode} />}
+        {!mode && (
+          <ModeSelectCard
+            setMode={handleSetMode}
+            onOfflineMode={() => setShowOfflineMode(true)}
+          />
+        )}
 
         {/* Single unified block — ConnectionCard never remounts when connecting */}
         {mode && (
@@ -255,6 +264,10 @@ function App() {
           </div>
         )}
       </div>
+
+      {showOfflineMode && (
+        <OfflineMode onClose={() => setShowOfflineMode(false)} />
+      )}
     </div>
   );
 }

@@ -1,11 +1,12 @@
 import { motion } from "framer-motion";
-import { ArrowUp, ArrowDown } from "@phosphor-icons/react";
+import { ArrowUp, ArrowDown, WifiX } from "@phosphor-icons/react";
 
 interface Props {
   setMode: (mode: "send" | "receive") => void;
+  onOfflineMode: () => void;
 }
 
-export function ModeSelectCard({ setMode }: Props) {
+export function ModeSelectCard({ setMode, onOfflineMode }: Props) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -116,6 +117,66 @@ export function ModeSelectCard({ setMode }: Props) {
             </p>
             <p style={{ fontSize: "13px", color: "#6b7280", marginTop: "3px" }}>
               Get files from another device
+            </p>
+          </div>
+        </motion.button>
+
+        {/* Divider */}
+        <div style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "12px",
+        }}>
+          <div style={{ flex: 1, height: "1px", background: "rgba(255,255,255,0.05)" }} />
+          <p style={{ fontSize: "11px", color: "#374151" }}>or</p>
+          <div style={{ flex: 1, height: "1px", background: "rgba(255,255,255,0.05)" }} />
+        </div>
+
+        {/* Offline Mode */}
+        <motion.button
+          whileHover={{ scale: 1.01 }}
+          whileTap={{ scale: 0.98 }}
+          onClick={onOfflineMode}
+          style={{
+            background: "rgba(108,99,255,0.06)",
+            border: "1px solid rgba(108,99,255,0.15)",
+            borderRadius: "20px",
+            padding: "14px 20px",
+            cursor: "pointer",
+            display: "flex",
+            alignItems: "center",
+            gap: "14px",
+            textAlign: "left",
+            width: "100%",
+          }}
+        >
+          <div style={{
+            width: "44px",
+            height: "44px",
+            borderRadius: "14px",
+            background: "rgba(108,99,255,0.12)",
+            border: "1px solid rgba(108,99,255,0.2)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            flexShrink: 0,
+          }}>
+            <WifiX size={22} weight="bold" color="#6c63ff" />
+          </div>
+          <div>
+            <p style={{
+              fontSize: "15px",
+              fontWeight: "700",
+              color: "#9ca3af",
+            }}>
+              Offline Mode
+            </p>
+            <p style={{
+              fontSize: "12px",
+              color: "#4b5563",
+              marginTop: "2px",
+            }}>
+              Transfer via hotspot, no internet needed
             </p>
           </div>
         </motion.button>
