@@ -1,40 +1,33 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { QRCodeSVG } from "qrcode.react";
-import {
-  WifiX,
-  ArrowLeft,
-  Lightning,
-  DeviceMobile,
-  ArrowsClockwise,
-  CheckCircle,
-  X,
-} from "@phosphor-icons/react";
+import { ArrowLeft, X, ArrowsClockwise } from "@phosphor-icons/react";
 import { QRScanner } from "./QRScanner";
 import { useOfflineTransfer } from "../hooks/useOfflineTransfer";
 import { useFileTransfer } from "../hooks/useFileTransfer";
 import { TransferCard } from "./TransferCard";
 
-type OfflineStep =
-  | "guide"
-  | "role-select"
-  | "sender-qr"
-  | "sender-scan"
-  | "receiver-scan"
-  | "receiver-qr"
-  | "connected";
+type Screen = "guide" | "role" | "sender-show-qr" | "receiver-scan" | "receiver-show-qr" | "connected";
 
 interface Props {
   onClose: () => void;
 }
 
+// Simple slide transition — no heavy spring physics
+const slide = {
+  initial: { opacity: 0, x: 30 },
+  animate: { opacity: 1, x: 0 },
+  exit: { opacity: 0, x: -30 },
+  transition: { duration: 0.18, ease: "easeOut" as const },
+};
+
 export function OfflineMode({ onClose }: Props) {
-  const [step, setStep] = useState<OfflineStep>("guide");
+  const [screen, setScreen] = useState<Screen>("guide");
   const [role, setRole] = useState<"sender" | "receiver" | null>(null);
   const [showScanner, setShowScanner] = useState(false);
-
-  const onMessageRef = { current: null as any };
+  const [btAvailable, setBtAvailable] = useState(false);
+  const onMessageRef = useRef<((e: MessageEvent) => void) | null>(null);
 
   const {
     offlineState,
@@ -59,284 +52,356 @@ export function OfflineMode({ onClose }: Props) {
 
   onMessageRef.current = handleMessage;
 
-  // Auto-advance when connected
+  // Check Bluetooth availability
   useEffect(() => {
-    if (offlineState === "connected") {
-      setStep("connected");
-    }
+    if ("bluetooth" in navigator) setBtAvailable(true);
+  }, []);
+
+  // Auto advance to connected
+  useEffect(() => {
+    if (offlineState === "connected") setScreen("connected");
   }, [offlineState]);
 
-  // Auto-advance when QRs are ready
+  // Auto advance sender when offer ready
   useEffect(() => {
-    if (offerQR && step === "role-select") {
-      setStep("sender-qr");
-    }
-  }, [offerQR, step]);
+    if (offerQR && role === "sender") setScreen("sender-show-qr");
+  }, [offerQR, role]);
 
+  // Auto advance receiver when answer ready
   useEffect(() => {
-    if (answerQR && step === "receiver-scan") {
-      setStep("receiver-qr");
-    }
-  }, [answerQR, step]);
+    if (answerQR && role === "receiver") setScreen("receiver-show-qr");
+  }, [answerQR, role]);
 
-  const handleRoleSelect = (selectedRole: "sender" | "receiver") => {
-    setRole(selectedRole);
-    if (selectedRole === "sender") {
+  // Back navigation per screen
+  const handleBack = () => {
+    switch (screen) {
+      case "role":
+        setScreen("guide");
+        break;
+      case "sender-show-qr":
+      case "receiver-scan":
+        disconnect();
+        setRole(null);
+        setScreen("role");
+        break;
+      case "receiver-show-qr":
+        setScreen("receiver-scan");
+        break;
+      default:
+        onClose();
+    }
+  };
+
+  const handleRoleSelect = (r: "sender" | "receiver") => {
+    setRole(r);
+    if (r === "sender") {
       createOffer();
-      setStep("role-select"); // will advance when offerQR ready
+      // Screen will advance when offerQR ready
     } else {
-      setStep("receiver-scan");
+      setScreen("receiver-scan");
     }
   };
 
-  const cardStyle = {
-    background: "rgba(10,10,30,0.97)",
-    border: "1px solid rgba(108,99,255,0.2)",
-    borderRadius: "24px",
-    padding: "28px",
-    width: "100%",
-    maxWidth: "380px",
+  // Shared container style
+  const container: React.CSSProperties = {
+    position: "fixed",
+    inset: 0,
+    background: "#07071a",
+    zIndex: 9998,
     display: "flex",
-    flexDirection: "column" as const,
-    gap: "20px",
-    boxShadow: "0 20px 60px rgba(0,0,0,0.5), 0 0 80px rgba(108,99,255,0.1)",
+    flexDirection: "column",
+    overflowY: "auto",
   };
 
-  const renderStep = () => {
-    // Guide screen
-    if (step === "guide") {
-      return (
-        <motion.div
-          key="guide"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -20 }}
-          style={cardStyle}
-        >
-          {/* Header */}
-          <div style={{
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "space-between",
-          }}>
-            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+  // Top nav bar
+  const renderNav = (title: string, subtitle?: string) => (
+    <div style={{
+      display: "flex",
+      alignItems: "center",
+      gap: "12px",
+      padding: "16px 20px",
+      paddingTop: "max(16px, env(safe-area-inset-top))",
+      borderBottom: "1px solid rgba(255,255,255,0.05)",
+      flexShrink: 0,
+    }}>
+      <button
+        onClick={handleBack}
+        style={{
+          background: "rgba(255,255,255,0.06)",
+          border: "1px solid rgba(255,255,255,0.08)",
+          borderRadius: "10px",
+          width: "36px",
+          height: "36px",
+          cursor: "pointer",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          flexShrink: 0,
+        }}
+      >
+        <ArrowLeft size={16} weight="bold" color="#9ca3af" />
+      </button>
+      <div>
+        <p style={{ fontSize: "16px", fontWeight: "700", color: "#e8e8f0" }}>
+          {title}
+        </p>
+        {subtitle && (
+          <p style={{ fontSize: "11px", color: "#6b7280", marginTop: "1px" }}>
+            {subtitle}
+          </p>
+        )}
+      </div>
+    </div>
+  );
+
+  // Large QR display — same size as online mode
+  const renderLargeQR = (value: string, glowColor: string) => (
+    <div style={{
+      display: "flex",
+      justifyContent: "center",
+      padding: "8px",
+      position: "relative",
+    }}>
+      {/* Glow */}
+      <div style={{
+        position: "absolute",
+        inset: 0,
+        borderRadius: "24px",
+        background: `radial-gradient(ellipse, ${glowColor}22 0%, transparent 70%)`,
+        filter: "blur(20px)",
+        pointerEvents: "none",
+      }} />
+      {/* QR */}
+      <div style={{
+        background: "#ffffff",
+        borderRadius: "20px",
+        padding: "18px",
+        position: "relative",
+        boxShadow: `0 0 0 1px ${glowColor}33, 0 8px 32px rgba(0,0,0,0.4)`,
+      }}>
+        <QRCodeSVG
+          value={value}
+          size={240}
+          bgColor="#ffffff"
+          fgColor="#06061a"
+          level="M"
+          includeMargin={false}
+          imageSettings={{
+            src: "/favicon.svg",
+            x: undefined,
+            y: undefined,
+            height: 32,
+            width: 32,
+            excavate: true,
+          }}
+        />
+      </div>
+    </div>
+  );
+
+  const renderScreen = () => {
+    // Guide
+    if (screen === "guide") return (
+      <motion.div key="guide" {...slide} style={{ flex: 1, display: "flex", flexDirection: "column" }}>
+        {/* Close button in top right */}
+        <div style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          padding: "16px 20px",
+          paddingTop: "max(16px, env(safe-area-inset-top))",
+        }}>
+          <div>
+            <p style={{ fontSize: "22px", fontWeight: "800", color: "#e8e8f0" }}>
+              ⚡ Offline Mode
+            </p>
+            <p style={{ fontSize: "12px", color: "#6b7280", marginTop: "2px" }}>
+              Transfer files without internet
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            style={{
+              background: "rgba(255,255,255,0.05)",
+              border: "1px solid rgba(255,255,255,0.08)",
+              borderRadius: "10px",
+              width: "34px",
+              height: "34px",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <X size={14} weight="bold" color="#6b7280" />
+          </button>
+        </div>
+
+        {/* Steps */}
+        <div style={{
+          padding: "8px 20px",
+          display: "flex",
+          flexDirection: "column",
+          gap: "10px",
+          flex: 1,
+        }}>
+          {[
+            {
+              icon: "📶",
+              color: "#fbbf24",
+              bg: "rgba(251,191,36,0.08)",
+              border: "rgba(251,191,36,0.15)",
+              title: "One device creates a hotspot",
+              desc: "Go to Settings → Hotspot → Turn on",
+            },
+            {
+              icon: "📱",
+              color: "#00d4ff",
+              bg: "rgba(0,212,255,0.08)",
+              border: "rgba(0,212,255,0.15)",
+              title: "Other device connects to it",
+              desc: "Join the hotspot from WiFi settings",
+            },
+            {
+              icon: "📷",
+              color: "#00ff88",
+              bg: "rgba(0,255,136,0.08)",
+              border: "rgba(0,255,136,0.15)",
+              title: "Exchange QR codes to pair",
+              desc: "Takes about 10 seconds total",
+            },
+          ].map((item, i) => (
+            <div key={i} style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "14px",
+              background: item.bg,
+              border: `1px solid ${item.border}`,
+              borderRadius: "16px",
+              padding: "16px",
+            }}>
               <div style={{
-                width: "36px",
-                height: "36px",
-                borderRadius: "10px",
-                background: "rgba(108,99,255,0.15)",
-                border: "1px solid rgba(108,99,255,0.3)",
+                fontSize: "24px",
+                width: "44px",
+                height: "44px",
+                borderRadius: "12px",
+                background: "rgba(255,255,255,0.04)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
+                flexShrink: 0,
               }}>
-                <WifiX size={18} weight="bold" color="#6c63ff" />
+                {item.icon}
               </div>
               <div>
-                <p style={{
-                  fontSize: "16px",
-                  fontWeight: "700",
-                  color: "#e8e8f0",
-                }}>
-                  Offline Mode
+                <p style={{ fontSize: "14px", fontWeight: "600", color: "#e8e8f0" }}>
+                  {i + 1}. {item.title}
                 </p>
-                <p style={{ fontSize: "11px", color: "#6b7280" }}>
-                  No internet required
+                <p style={{ fontSize: "11px", color: "#6b7280", marginTop: "3px" }}>
+                  {item.desc}
                 </p>
               </div>
             </div>
-            <motion.button
-              whileTap={{ scale: 0.9 }}
-              onClick={onClose}
-              style={{
-                background: "rgba(255,255,255,0.05)",
-                border: "1px solid rgba(255,255,255,0.08)",
-                borderRadius: "10px",
-                width: "30px",
-                height: "30px",
-                cursor: "pointer",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <X size={13} weight="bold" color="#6b7280" />
-            </motion.button>
-          </div>
+          ))}
 
-          {/* Steps */}
-          <div style={{
-            display: "flex",
-            flexDirection: "column",
-            gap: "12px",
-          }}>
-            {[
-              {
-                icon: <Lightning size={18} weight="fill" color="#fbbf24" />,
-                bg: "rgba(251,191,36,0.1)",
-                border: "rgba(251,191,36,0.2)",
-                title: "Turn on Hotspot",
-                desc: "One device creates a mobile hotspot",
-              },
-              {
-                icon: <DeviceMobile size={18} weight="bold" color="#00d4ff" />,
-                bg: "rgba(0,212,255,0.1)",
-                border: "rgba(0,212,255,0.2)",
-                title: "Connect Other Device",
-                desc: "Join the hotspot on the second device",
-              },
-              {
-                icon: <ArrowsClockwise size={18} weight="bold" color="#00ff88" />,
-                bg: "rgba(0,255,136,0.1)",
-                border: "rgba(0,255,136,0.2)",
-                title: "Scan & Connect",
-                desc: "Exchange QR codes to pair instantly",
-              },
-            ].map((item, i) => (
-              <div
-                key={i}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: "14px",
-                  background: "rgba(255,255,255,0.02)",
-                  border: "1px solid rgba(255,255,255,0.05)",
-                  borderRadius: "14px",
-                  padding: "14px",
-                }}
-              >
-                <div style={{
-                  width: "38px",
-                  height: "38px",
-                  borderRadius: "10px",
-                  background: item.bg,
-                  border: `1px solid ${item.border}`,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  flexShrink: 0,
-                }}>
-                  {item.icon}
-                </div>
-                <div>
-                  <p style={{
-                    fontSize: "13px",
-                    fontWeight: "600",
-                    color: "#e8e8f0",
-                  }}>
-                    {item.icon && `${i + 1}. `}{item.title}
-                  </p>
-                  <p style={{
-                    fontSize: "11px",
-                    color: "#6b7280",
-                    marginTop: "2px",
-                  }}>
-                    {item.desc}
-                  </p>
-                </div>
-              </div>
-            ))}
-          </div>
+          {/* Bluetooth boost tip */}
+          {btAvailable && (
+            <div style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "10px",
+              background: "rgba(89,120,255,0.06)",
+              border: "1px solid rgba(89,120,255,0.15)",
+              borderRadius: "12px",
+              padding: "12px 14px",
+            }}>
+              <span style={{ fontSize: "18px" }}>🔵</span>
+              <p style={{ fontSize: "11px", color: "#6b7280" }}>
+                <span style={{ color: "#89CFF0", fontWeight: "600" }}>Tip: </span>
+                Enable Bluetooth on both devices for faster local discovery
+              </p>
+            </div>
+          )}
+        </div>
 
-          <motion.button
-            whileTap={{ scale: 0.97 }}
-            onClick={() => setStep("role-select")}
+        {/* CTA */}
+        <div style={{
+          padding: "16px 20px",
+          paddingBottom: "max(16px, env(safe-area-inset-bottom))",
+        }}>
+          <button
+            onClick={() => setScreen("role")}
             style={{
               background: "linear-gradient(135deg, #6c63ff, #00d4ff)",
               border: "none",
-              borderRadius: "14px",
-              padding: "14px",
-              fontSize: "14px",
+              borderRadius: "16px",
+              padding: "16px",
+              fontSize: "15px",
               fontWeight: "700",
               color: "white",
               cursor: "pointer",
               width: "100%",
             }}
           >
-            Get Started
-          </motion.button>
-        </motion.div>
-      );
-    }
+            Get Started →
+          </button>
+        </div>
+      </motion.div>
+    );
 
     // Role select
-    if (step === "role-select") {
-      return (
-        <motion.div
-          key="role"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -20 }}
-          style={cardStyle}
-        >
-          <div style={{
-            display: "flex",
-            alignItems: "center",
-            gap: "10px",
-          }}>
-            <motion.button
-              whileTap={{ scale: 0.9 }}
-              onClick={() => setStep("guide")}
+    if (screen === "role") return (
+      <motion.div key="role" {...slide} style={{ flex: 1, display: "flex", flexDirection: "column" }}>
+        {renderNav("Choose Your Role", "Select on this device")}
+
+        <div style={{
+          flex: 1,
+          padding: "24px 20px",
+          display: "flex",
+          flexDirection: "column",
+          gap: "12px",
+          justifyContent: "center",
+        }}>
+          {[
+            {
+              role: "sender" as const,
+              emoji: "📤",
+              title: "I'm Sending Files",
+              desc: "I'll show a QR code for the receiver to scan",
+              color: "#6c63ff",
+              bg: "rgba(108,99,255,0.08)",
+              border: "rgba(108,99,255,0.2)",
+            },
+            {
+              role: "receiver" as const,
+              emoji: "📥",
+              title: "I'm Receiving Files",
+              desc: "I'll scan the sender's QR code",
+              color: "#00d4ff",
+              bg: "rgba(0,212,255,0.08)",
+              border: "rgba(0,212,255,0.2)",
+            },
+          ].map((item) => (
+            <button
+              key={item.role}
+              onClick={() => handleRoleSelect(item.role)}
               style={{
-                background: "rgba(255,255,255,0.05)",
-                border: "1px solid rgba(255,255,255,0.08)",
-                borderRadius: "8px",
-                padding: "6px",
+                background: item.bg,
+                border: `1px solid ${item.border}`,
+                borderRadius: "20px",
+                padding: "22px",
                 cursor: "pointer",
+                textAlign: "left",
+                width: "100%",
                 display: "flex",
+                alignItems: "center",
+                gap: "16px",
               }}
             >
-              <ArrowLeft size={14} weight="bold" color="#6b7280" />
-            </motion.button>
-            <div>
-              <p style={{
-                fontSize: "16px",
-                fontWeight: "700",
-                color: "#e8e8f0",
-              }}>
-                What's your role?
-              </p>
-              <p style={{ fontSize: "11px", color: "#6b7280" }}>
-                Choose on this device
-              </p>
-            </div>
-          </div>
-
-          <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
-            {[
-              {
-                role: "sender" as const,
-                title: "I'm Sending Files",
-                desc: "Generate QR for the receiver to scan",
-                color: "#6c63ff",
-                bg: "rgba(108,99,255,0.08)",
-                border: "rgba(108,99,255,0.2)",
-              },
-              {
-                role: "receiver" as const,
-                title: "I'm Receiving Files",
-                desc: "Scan the sender's QR code",
-                color: "#00d4ff",
-                bg: "rgba(0,212,255,0.08)",
-                border: "rgba(0,212,255,0.2)",
-              },
-            ].map((item) => (
-              <motion.button
-                key={item.role}
-                whileTap={{ scale: 0.97 }}
-                onClick={() => handleRoleSelect(item.role)}
-                style={{
-                  background: item.bg,
-                  border: `1px solid ${item.border}`,
-                  borderRadius: "16px",
-                  padding: "18px",
-                  cursor: "pointer",
-                  textAlign: "left",
-                  width: "100%",
-                }}
-              >
+              <span style={{ fontSize: "36px" }}>{item.emoji}</span>
+              <div>
                 <p style={{
-                  fontSize: "15px",
+                  fontSize: "16px",
                   fontWeight: "700",
                   color: item.color,
                 }}>
@@ -346,365 +411,290 @@ export function OfflineMode({ onClose }: Props) {
                   fontSize: "12px",
                   color: "#6b7280",
                   marginTop: "4px",
+                  lineHeight: "1.4",
                 }}>
                   {item.desc}
                 </p>
-              </motion.button>
-            ))}
-          </div>
-        </motion.div>
-      );
-    }
+              </div>
+            </button>
+          ))}
+        </div>
+      </motion.div>
+    );
 
-    // Sender shows offer QR
-    if (step === "sender-qr" && offerQR) {
-      return (
-        <motion.div
-          key="sender-qr"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -20 }}
-          style={cardStyle}
-        >
-          <div>
-            <p style={{
-              fontSize: "16px",
-              fontWeight: "700",
-              color: "#e8e8f0",
-            }}>
-              Step 1 — Show this QR
-            </p>
-            <p style={{
-              fontSize: "12px",
-              color: "#6b7280",
-              marginTop: "4px",
-            }}>
-              Let the receiver scan this on their device
-            </p>
-          </div>
+    // Sender shows QR
+    if (screen === "sender-show-qr" && offerQR) return (
+      <motion.div key="sender-qr" {...slide} style={{ flex: 1, display: "flex", flexDirection: "column" }}>
+        {renderNav("Your QR Code", "Step 1 of 2 — Show to receiver")}
 
-          {/* QR */}
-          <div style={{
-            display: "flex",
-            justifyContent: "center",
-            position: "relative",
-            padding: "8px",
-          }}>
-            <motion.div
-              animate={{ opacity: [0.4, 0.8, 0.4] }}
-              transition={{ repeat: Infinity, duration: 3 }}
-              style={{
-                position: "absolute",
-                inset: 0,
-                borderRadius: "20px",
-                background: "radial-gradient(ellipse, rgba(108,99,255,0.2) 0%, transparent 70%)",
-                filter: "blur(10px)",
-              }}
-            />
-            <div style={{
-              background: "#ffffff",
-              borderRadius: "16px",
-              padding: "14px",
-              position: "relative",
-            }}>
-              <QRCodeSVG
-                value={offerQR}
-                size={200}
-                bgColor="#ffffff"
-                fgColor="#06061a"
-                level="M"
-                includeMargin={false}
-                imageSettings={{
-                  src: "/favicon.svg",
-                  x: undefined,
-                  y: undefined,
-                  height: 28,
-                  width: 28,
-                  excavate: true,
-                }}
-              />
-            </div>
-          </div>
+        <div style={{
+          flex: 1,
+          padding: "20px",
+          display: "flex",
+          flexDirection: "column",
+          gap: "16px",
+          alignItems: "center",
+          justifyContent: "center",
+        }}>
+          {renderLargeQR(offerQR, "#6c63ff")}
 
           <div style={{
-            background: "rgba(108,99,255,0.08)",
-            border: "1px solid rgba(108,99,255,0.15)",
-            borderRadius: "12px",
-            padding: "12px",
-            display: "flex",
-            alignItems: "center",
-            gap: "10px",
+            background: "rgba(108,99,255,0.06)",
+            border: "1px solid rgba(108,99,255,0.12)",
+            borderRadius: "14px",
+            padding: "14px 16px",
+            width: "100%",
+            maxWidth: "320px",
           }}>
-            <ArrowsClockwise
-              size={16}
-              color="#6c63ff"
-              style={{ flexShrink: 0 }}
-            />
-            <p style={{ fontSize: "12px", color: "#9ca3af" }}>
-              After receiver scans, they'll show you a QR to scan back
+            <p style={{
+              fontSize: "13px",
+              color: "#9ca3af",
+              textAlign: "center",
+              lineHeight: "1.5",
+            }}>
+              Show this QR to the receiver.
+              After they scan it, they'll show you their QR.
             </p>
           </div>
+        </div>
 
-          <motion.button
-            whileTap={{ scale: 0.97 }}
-            onClick={() => {
-              setShowScanner(true);
-            }}
+        <div style={{
+          padding: "16px 20px",
+          paddingBottom: "max(16px, env(safe-area-inset-bottom))",
+        }}>
+          <button
+            onClick={() => setShowScanner(true)}
             style={{
               background: "linear-gradient(135deg, #6c63ff, #00d4ff)",
               border: "none",
-              borderRadius: "14px",
-              padding: "14px",
-              fontSize: "14px",
+              borderRadius: "16px",
+              padding: "16px",
+              fontSize: "15px",
               fontWeight: "700",
               color: "white",
               cursor: "pointer",
               width: "100%",
             }}
           >
-            Scan Receiver's QR →
-          </motion.button>
-        </motion.div>
-      );
-    }
+            📷 Scan Receiver's QR →
+          </button>
+        </div>
+      </motion.div>
+    );
 
     // Receiver scans offer
-    if (step === "receiver-scan") {
-      return (
-        <motion.div
-          key="receiver-scan"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -20 }}
-          style={cardStyle}
-        >
-          <div>
-            <p style={{
-              fontSize: "16px",
-              fontWeight: "700",
-              color: "#e8e8f0",
-            }}>
-              Step 1 — Scan Sender's QR
-            </p>
-            <p style={{
-              fontSize: "12px",
-              color: "#6b7280",
-              marginTop: "4px",
-            }}>
-              Ask the sender to show their QR code
-            </p>
-          </div>
+    if (screen === "receiver-scan") return (
+      <motion.div key="receiver-scan" {...slide} style={{ flex: 1, display: "flex", flexDirection: "column" }}>
+        {renderNav("Scan Sender's QR", "Step 1 of 2")}
 
+        <div style={{
+          flex: 1,
+          padding: "24px 20px",
+          display: "flex",
+          flexDirection: "column",
+          gap: "16px",
+          alignItems: "center",
+          justifyContent: "center",
+        }}>
           {offlineState === "creating-answer" ? (
             <div style={{
               display: "flex",
               flexDirection: "column",
               alignItems: "center",
-              gap: "12px",
-              padding: "24px",
+              gap: "16px",
             }}>
               <motion.div
                 animate={{ rotate: 360 }}
                 transition={{ repeat: Infinity, duration: 1, ease: "linear" }}
               >
-                <ArrowsClockwise size={32} color="#6c63ff" />
+                <ArrowsClockwise size={40} color="#6c63ff" />
               </motion.div>
-              <p style={{ fontSize: "13px", color: "#6b7280" }}>
-                Generating your QR code...
+              <p style={{ fontSize: "14px", color: "#9ca3af" }}>
+                Generating your QR...
               </p>
             </div>
           ) : (
-            <motion.button
-              whileTap={{ scale: 0.97 }}
+            <>
+              <div style={{
+                width: "100px",
+                height: "100px",
+                borderRadius: "24px",
+                background: "rgba(0,212,255,0.08)",
+                border: "2px dashed rgba(0,212,255,0.3)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: "44px",
+              }}>
+                📷
+              </div>
+
+              <div style={{ textAlign: "center" }}>
+                <p style={{
+                  fontSize: "15px",
+                  fontWeight: "600",
+                  color: "#e8e8f0",
+                }}>
+                  Ask the sender to show their QR
+                </p>
+                <p style={{
+                  fontSize: "12px",
+                  color: "#6b7280",
+                  marginTop: "6px",
+                }}>
+                  Then tap below to open your camera
+                </p>
+              </div>
+            </>
+          )}
+        </div>
+
+        {offlineState !== "creating-answer" && (
+          <div style={{
+            padding: "16px 20px",
+            paddingBottom: "max(16px, env(safe-area-inset-bottom))",
+          }}>
+            <button
               onClick={() => setShowScanner(true)}
               style={{
-                background: "linear-gradient(135deg, #6c63ff, #00d4ff)",
+                background: "linear-gradient(135deg, #00d4ff, #0099cc)",
                 border: "none",
-                borderRadius: "14px",
-                padding: "32px",
+                borderRadius: "16px",
+                padding: "16px",
                 fontSize: "15px",
                 fontWeight: "700",
                 color: "white",
                 cursor: "pointer",
                 width: "100%",
-                display: "flex",
-                flexDirection: "column",
-                alignItems: "center",
-                gap: "10px",
               }}
             >
-              <p style={{ fontSize: "32px" }}>📷</p>
-              Tap to Open Camera
-            </motion.button>
-          )}
-        </motion.div>
-      );
-    }
+              Open Camera to Scan
+            </button>
+          </div>
+        )}
+      </motion.div>
+    );
 
     // Receiver shows answer QR
-    if (step === "receiver-qr" && answerQR) {
-      return (
-        <motion.div
-          key="receiver-qr"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -20 }}
-          style={cardStyle}
-        >
-          <div>
-            <p style={{
-              fontSize: "16px",
-              fontWeight: "700",
-              color: "#e8e8f0",
-            }}>
-              Step 2 — Show this QR
-            </p>
-            <p style={{
-              fontSize: "12px",
-              color: "#6b7280",
-              marginTop: "4px",
-            }}>
-              Let the sender scan this to complete connection
-            </p>
-          </div>
+    if (screen === "receiver-show-qr" && answerQR) return (
+      <motion.div key="receiver-qr" {...slide} style={{ flex: 1, display: "flex", flexDirection: "column" }}>
+        {renderNav("Show to Sender", "Step 2 of 2 — Almost there!")}
 
-          <div style={{
-            display: "flex",
-            justifyContent: "center",
-            position: "relative",
-            padding: "8px",
-          }}>
-            <motion.div
-              animate={{ opacity: [0.4, 0.8, 0.4] }}
-              transition={{ repeat: Infinity, duration: 3 }}
-              style={{
-                position: "absolute",
-                inset: 0,
-                borderRadius: "20px",
-                background: "radial-gradient(ellipse, rgba(0,212,255,0.2) 0%, transparent 70%)",
-                filter: "blur(10px)",
-              }}
-            />
-            <div style={{
-              background: "#ffffff",
-              borderRadius: "16px",
-              padding: "14px",
-              position: "relative",
-            }}>
-              <QRCodeSVG
-                value={answerQR}
-                size={200}
-                bgColor="#ffffff"
-                fgColor="#06061a"
-                level="M"
-                includeMargin={false}
-                imageSettings={{
-                  src: "/favicon.svg",
-                  x: undefined,
-                  y: undefined,
-                  height: 28,
-                  width: 28,
-                  excavate: true,
-                }}
-              />
-            </div>
-          </div>
+        <div style={{
+          flex: 1,
+          padding: "20px",
+          display: "flex",
+          flexDirection: "column",
+          gap: "16px",
+          alignItems: "center",
+          justifyContent: "center",
+        }}>
+          {renderLargeQR(answerQR, "#00d4ff")}
 
           <div style={{
             background: "rgba(0,212,255,0.06)",
-            border: "1px solid rgba(0,212,255,0.15)",
-            borderRadius: "12px",
-            padding: "12px",
-            display: "flex",
-            alignItems: "center",
-            gap: "10px",
+            border: "1px solid rgba(0,212,255,0.12)",
+            borderRadius: "14px",
+            padding: "14px 16px",
+            width: "100%",
+            maxWidth: "320px",
           }}>
-            <ArrowsClockwise size={16} color="#00d4ff" style={{ flexShrink: 0 }} />
-            <p style={{ fontSize: "12px", color: "#9ca3af" }}>
-              Waiting for sender to scan this...
+            <p style={{
+              fontSize: "13px",
+              color: "#9ca3af",
+              textAlign: "center",
+              lineHeight: "1.5",
+            }}>
+              Show this QR to the sender.
+              Once they scan it, you'll be connected!
             </p>
           </div>
-        </motion.div>
-      );
-    }
 
-    // Connected
-    if (step === "connected") {
-      return (
-        <motion.div
-          key="connected"
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            gap: "16px",
-            width: "100%",
-            maxWidth: "380px",
-          }}
-        >
-          {/* Status bar */}
           <div style={{
-            background: "rgba(0,255,136,0.08)",
-            border: "1px solid rgba(0,255,136,0.2)",
-            borderRadius: "16px",
-            padding: "14px 18px",
             display: "flex",
             alignItems: "center",
-            justifyContent: "space-between",
+            gap: "8px",
           }}>
-            <div style={{
-              display: "flex",
-              alignItems: "center",
-              gap: "10px",
-            }}>
-              <motion.div
-                animate={{ scale: [1, 1.3, 1] }}
-                transition={{ repeat: Infinity, duration: 1.5 }}
-                style={{
-                  width: "8px",
-                  height: "8px",
-                  borderRadius: "50%",
-                  background: "#00ff88",
-                  boxShadow: "0 0 8px #00ff88",
-                }}
-              />
-              <div>
-                <p style={{
-                  fontSize: "13px",
-                  fontWeight: "600",
-                  color: "#00ff88",
-                }}>
-                  Connected — Local Network
-                </p>
-                <p style={{ fontSize: "11px", color: "#6b7280" }}>
-                  <CheckCircle size={10} /> No internet used
-                </p>
-              </div>
-            </div>
-
-            <motion.button
-              whileTap={{ scale: 0.95 }}
-              onClick={() => {
-                disconnect();
-                onClose();
-              }}
+            <motion.div
+              animate={{ scale: [1, 1.2, 1] }}
+              transition={{ repeat: Infinity, duration: 1.5 }}
               style={{
-                background: "rgba(255,59,59,0.1)",
-                border: "1px solid rgba(255,59,59,0.2)",
-                borderRadius: "10px",
-                padding: "6px 12px",
-                fontSize: "12px",
-                fontWeight: "600",
-                color: "#ff6b6b",
-                cursor: "pointer",
+                width: "8px",
+                height: "8px",
+                borderRadius: "50%",
+                background: "#00d4ff",
+                boxShadow: "0 0 8px #00d4ff",
               }}
-            >
-              Disconnect
-            </motion.button>
+            />
+            <p style={{ fontSize: "12px", color: "#6b7280" }}>
+              Waiting for sender to scan...
+            </p>
           </div>
+        </div>
+      </motion.div>
+    );
 
-          {/* Transfer card */}
+    // Connected
+    if (screen === "connected") return (
+      <motion.div key="connected" {...slide} style={{ flex: 1, display: "flex", flexDirection: "column" }}>
+        {/* Status header */}
+        <div style={{
+          padding: "16px 20px",
+          paddingTop: "max(16px, env(safe-area-inset-top))",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          borderBottom: "1px solid rgba(0,255,136,0.1)",
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <motion.div
+              animate={{ scale: [1, 1.3, 1] }}
+              transition={{ repeat: Infinity, duration: 1.5 }}
+              style={{
+                width: "10px",
+                height: "10px",
+                borderRadius: "50%",
+                background: "#00ff88",
+                boxShadow: "0 0 8px #00ff88",
+              }}
+            />
+            <div>
+              <p style={{
+                fontSize: "15px",
+                fontWeight: "700",
+                color: "#00ff88",
+              }}>
+                Connected — Local Network
+              </p>
+              <p style={{ fontSize: "11px", color: "#6b7280" }}>
+                No internet used · Maximum speed
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => { disconnect(); onClose(); }}
+            style={{
+              background: "rgba(255,59,59,0.1)",
+              border: "1px solid rgba(255,59,59,0.2)",
+              borderRadius: "10px",
+              padding: "8px 14px",
+              fontSize: "12px",
+              fontWeight: "600",
+              color: "#ff6b6b",
+              cursor: "pointer",
+            }}
+          >
+            End
+          </button>
+        </div>
+
+        {/* Transfer area */}
+        <div style={{
+          flex: 1,
+          padding: "16px 20px",
+          paddingBottom: "max(16px, env(safe-area-inset-bottom))",
+          overflowY: "auto",
+        }}>
           <TransferCard
             progress={progress}
             sendFile={sendFile}
@@ -713,37 +703,27 @@ export function OfflineMode({ onClose }: Props) {
             resumeTransfer={resumeTransfer}
             cancelTransfer={cancelTransfer}
           />
-        </motion.div>
-      );
-    }
+        </div>
+      </motion.div>
+    );
 
     return null;
   };
 
   return createPortal(
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      style={{
+    <div style={container}>
+      {/* Background */}
+      <div style={{
         position: "fixed",
         inset: 0,
-        background: "rgba(0,0,0,0.85)",
-        backdropFilter: "blur(16px)",
-        WebkitBackdropFilter: "blur(16px)",
-        zIndex: 9998,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        padding: "20px",
-        overflowY: "auto",
-      }}
-    >
+        background: "linear-gradient(160deg, #0a0820 0%, #07071a 100%)",
+        zIndex: -1,
+      }} />
+
       <AnimatePresence mode="wait">
-        {renderStep()}
+        {renderScreen()}
       </AnimatePresence>
 
-      {/* QR Scanner for both sender and receiver */}
       {showScanner && (
         <QRScanner
           onScan={(data) => {
@@ -757,7 +737,7 @@ export function OfflineMode({ onClose }: Props) {
           onClose={() => setShowScanner(false)}
         />
       )}
-    </motion.div>,
+    </div>,
     document.body
   );
 }
