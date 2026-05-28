@@ -120,6 +120,7 @@ export function useFlux(onMessage?: (e: MessageEvent) => void) {
   const webrtcTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const keepAliveRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const connectionStateRef = useRef<ConnectionState>("idle");
+  const visibilityTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const log = useCallback((msg: string) => {
     if (isDev) console.log("[Flux]", msg);
@@ -134,9 +135,11 @@ export function useFlux(onMessage?: (e: MessageEvent) => void) {
   const cleanup = useCallback(() => {
     if (retryTimeoutRef.current) clearTimeout(retryTimeoutRef.current);
     if (webrtcTimeoutRef.current) clearTimeout(webrtcTimeoutRef.current);
+    if (visibilityTimeoutRef.current) clearTimeout(visibilityTimeoutRef.current);
     if (keepAliveRef.current) clearInterval(keepAliveRef.current);
     retryTimeoutRef.current = null;
     webrtcTimeoutRef.current = null;
+    visibilityTimeoutRef.current = null;
     keepAliveRef.current = null;
     channelRef.current?.close();
     pcRef.current?.close();
@@ -325,27 +328,15 @@ export function useFlux(onMessage?: (e: MessageEvent) => void) {
       ws.binaryType = "arraybuffer";
       wsRef.current = ws;
 
-      // WebRTC timeout — after 8s fall back to WS relay
+      // After 8s with no WebRTC — fall back to relay, stay in connecting state
       webrtcTimeoutRef.current = setTimeout(() => {
         const ice = pcRef.current?.iceConnectionState;
         if (ice !== "connected" && ice !== "completed") {
-          log("WebRTC didn't connect — using relay");
+          log("WebRTC didn't connect — trying relay");
           startWSRelay(code);
+          // Don't set idle — just try relay, stay in connecting state
         }
       }, 8000);
-
-      // Hard give-up timeout — after 30s reset if still not connected
-      retryTimeoutRef.current = setTimeout(() => {
-        if (wsRelayRef.current?.readyState === "open") return;
-        if (connectionStateRef.current === "connected") return;
-        if (pcRef.current?.connectionState === "connected") return;
-        if (pcRef.current?.iceConnectionState === "connected") return;
-
-        log("Connection timed out");
-        cleanup();
-        setConnectionStateSafe("idle");
-        setConnectionStatus("Connection timed out");
-      }, 30000);
 
       ws.onopen = () => {
         log("Signaling server connected");
@@ -542,6 +533,40 @@ export function useFlux(onMessage?: (e: MessageEvent) => void) {
     },
     [log]
   );
+
+  // Only timeout when user leaves the page
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "hidden") {
+        // User left the app — start a generous timeout
+        if (connectionStateRef.current === "connecting") {
+          visibilityTimeoutRef.current = setTimeout(() => {
+            if (connectionStateRef.current !== "connected") {
+              log("Connection timed out — user left the app");
+              cleanup();
+              setConnectionStateSafe("idle");
+              setConnectionStatus("");
+            }
+          }, 120000); // 2 minutes after leaving
+        }
+      } else {
+        // User came back — cancel the timeout
+        if (visibilityTimeoutRef.current) {
+          clearTimeout(visibilityTimeoutRef.current);
+          visibilityTimeoutRef.current = null;
+          log("User returned — keeping connection alive");
+        }
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      if (visibilityTimeoutRef.current) {
+        clearTimeout(visibilityTimeoutRef.current);
+      }
+    };
+  }, [cleanup, log, setConnectionStateSafe]);
 
   useEffect(() => {
     return () => cleanup();

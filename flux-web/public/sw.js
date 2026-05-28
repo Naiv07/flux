@@ -1,4 +1,4 @@
-const CACHE_NAME = "flux-v48";
+const CACHE_NAME = "flux-v50";
 
 self.addEventListener("install", (event) => {
   self.skipWaiting();
