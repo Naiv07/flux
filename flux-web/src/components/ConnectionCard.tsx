@@ -378,6 +378,7 @@ export function ConnectionCard({
         <QRModal
           roomCode={roomCode}
           onClose={() => setShowQR(false)}
+          connectionState={connectionState}
         />
       )}
 

@@ -1,16 +1,25 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { QRCodeSVG } from "qrcode.react";
 import { X, Copy, Check, ShareNetwork } from "@phosphor-icons/react";
+import type { ConnectionState } from "../types";
 
 interface Props {
   roomCode: string;
   onClose: () => void;
+  connectionState: ConnectionState;
 }
 
-export function QRModal({ roomCode, onClose }: Props) {
+export function QRModal({ roomCode, onClose, connectionState }: Props) {
   const [copied, setCopied] = useState(false);
+
+  // Auto-close when connection is established
+  useEffect(() => {
+    if (connectionState === "connected") {
+      onClose();
+    }
+  }, [connectionState, onClose]);
   const url = `${window.location.origin}?code=${roomCode}`;
 
   const handleCopy = () => {
