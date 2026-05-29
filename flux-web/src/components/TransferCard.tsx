@@ -69,6 +69,10 @@ export function TransferCard({
     if (isReceiving) directionRef.current = "receive";
   }, [isSending, isReceiving]);
 
+  const isComplete  = progress.status === "complete";
+  const isCancelled = progress.status === "cancelled";
+  const isActive    = isSending || isReceiving || isPaused;
+
   // Clear confirm state when transfer ends
   useEffect(() => {
     if (isComplete || isCancelled) {
@@ -76,9 +80,6 @@ export function TransferCard({
       setConfirmCancel(false);
     }
   }, [isComplete, isCancelled]);
-  const isComplete  = progress.status === "complete";
-  const isCancelled = progress.status === "cancelled";
-  const isActive    = isSending || isReceiving || isPaused;
 
   const progressColor = isComplete
     ? "#00ff88"
