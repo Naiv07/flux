@@ -388,6 +388,7 @@ export function ConnectionCard({
           roomCode={roomCode}
           onClose={() => setShowQR(false)}
           connectionState={connectionState}
+          connectionStatus={connectionStatus ?? ""}
         />
       )}
 

@@ -21,6 +21,8 @@ export function QRScanner({ onScan, onClose }: Props) {
   const [torchSupported, setTorchSupported] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [found, setFound] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [retryKey, setRetryKey] = useState(0);
 
   const stopCamera = useCallback(() => {
     if (animFrameRef.current) {
@@ -93,6 +95,8 @@ export function QRScanner({ onScan, onClose }: Props) {
           await videoRef.current.play();
         }
       } catch (err: any) {
+        if (!active) return;
+        setLoading(false);
         if (err.name === "NotAllowedError") {
           setError("Camera permission denied.");
         } else {
@@ -106,7 +110,7 @@ export function QRScanner({ onScan, onClose }: Props) {
       active = false;
       stopCamera();
     };
-  }, [stopCamera]);
+  }, [stopCamera, retryKey]);
 
   const scanFrame = useCallback(() => {
     const video = videoRef.current;
@@ -138,6 +142,7 @@ export function QRScanner({ onScan, onClose }: Props) {
       } catch { /* not a URL */ }
 
       if (roomCode.length === 6) {
+        navigator.vibrate?.(100);
         setFound(true);
         stopCamera();
         setTimeout(() => onScan(roomCode.toUpperCase()), 50);
@@ -149,6 +154,7 @@ export function QRScanner({ onScan, onClose }: Props) {
   }, [onScan, stopCamera]);
 
   const handleVideoPlay = () => {
+    setLoading(false);
     animFrameRef.current = requestAnimationFrame(scanFrame);
   };
 
@@ -168,6 +174,12 @@ export function QRScanner({ onScan, onClose }: Props) {
   const handleClose = () => {
     stopCamera();
     onClose();
+  };
+
+  const handleRetry = () => {
+    setError(null);
+    setLoading(true);
+    setRetryKey((k) => k + 1);
   };
 
   return createPortal(
@@ -198,6 +210,9 @@ export function QRScanner({ onScan, onClose }: Props) {
           from { opacity: 0; }
           to { opacity: 1; }
         }
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
       `}</style>
 
       {/* Camera */}
@@ -212,8 +227,29 @@ export function QRScanner({ onScan, onClose }: Props) {
         />
         <canvas ref={canvasRef} style={{ display: "none" }} />
 
+        {/* Loading spinner */}
+        {loading && !error && (
+          <div style={{
+            position: "absolute",
+            inset: 0,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: "rgba(0,0,0,0.7)",
+          }}>
+            <div style={{
+              width: "36px",
+              height: "36px",
+              border: "3px solid rgba(108,99,255,0.2)",
+              borderTop: "3px solid #6c63ff",
+              borderRadius: "50%",
+              animation: "spin 0.8s linear infinite",
+            }} />
+          </div>
+        )}
+
         {/* Scan overlay — pure CSS animations */}
-        {!error && !found && (
+        {!error && !found && !loading && (
           <div style={{
             position: "absolute",
             inset: 0,
@@ -231,8 +267,8 @@ export function QRScanner({ onScan, onClose }: Props) {
             {/* Scan frame */}
             <div style={{
               position: "relative",
-              width: "240px",
-              height: "240px",
+              width: "clamp(200px, 65vmin, 280px)",
+              height: "clamp(200px, 65vmin, 280px)",
               animation: "cornerPulse 2s ease-in-out infinite",
             }}>
               {/* Four corners */}
@@ -275,7 +311,7 @@ export function QRScanner({ onScan, onClose }: Props) {
               fontWeight: "500",
               textShadow: "0 1px 4px rgba(0,0,0,0.8)",
             }}>
-              Hold steady · 15–20cm away
+              Align the QR code within the frame
             </p>
           </div>
         )}
@@ -330,21 +366,38 @@ export function QRScanner({ onScan, onClose }: Props) {
             }}>
               {error}
             </p>
-            <button
-              onClick={handleClose}
-              style={{
-                background: "rgba(108,99,255,0.2)",
-                border: "1px solid rgba(108,99,255,0.4)",
-                borderRadius: "12px",
-                padding: "12px 24px",
-                color: "#6c63ff",
-                fontSize: "14px",
-                fontWeight: "600",
-                cursor: "pointer",
-              }}
-            >
-              Go Back
-            </button>
+            <div style={{ display: "flex", gap: "12px" }}>
+              <button
+                onClick={handleRetry}
+                style={{
+                  background: "rgba(108,99,255,0.2)",
+                  border: "1px solid rgba(108,99,255,0.4)",
+                  borderRadius: "12px",
+                  padding: "12px 24px",
+                  color: "#6c63ff",
+                  fontSize: "14px",
+                  fontWeight: "600",
+                  cursor: "pointer",
+                }}
+              >
+                Try Again
+              </button>
+              <button
+                onClick={handleClose}
+                style={{
+                  background: "rgba(255,255,255,0.06)",
+                  border: "1px solid rgba(255,255,255,0.1)",
+                  borderRadius: "12px",
+                  padding: "12px 24px",
+                  color: "#9ca3af",
+                  fontSize: "14px",
+                  fontWeight: "600",
+                  cursor: "pointer",
+                }}
+              >
+                Go Back
+              </button>
+            </div>
           </div>
         )}
 
@@ -405,7 +458,7 @@ export function QRScanner({ onScan, onClose }: Props) {
         </button>
 
         <p style={{ color: "#6b7280", fontSize: "12px" }}>
-          {found ? "✓ Code found!" : "Scanning..."}
+          {found ? "✓ Code found!" : loading ? "Starting camera..." : "Scanning..."}
         </p>
 
         {torchSupported ? (
