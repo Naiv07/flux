@@ -8,7 +8,6 @@ import { ParticleBackground } from "./components/ParticleBackground";
 import { ConnectionCard } from "./components/ConnectionCard";
 import { TransferCard } from "./components/TransferCard";
 import { ModeSelectCard } from "./components/ModeSelectCard";
-import { DiscoverCard } from "./components/DiscoverCard";
 
  const SIGNALING_SERVER_URL =
   import.meta.env.VITE_SIGNALING_SERVER ||
@@ -272,21 +271,9 @@ function App() {
                 disconnect={handleDisconnect}
                 mode={mode}
                 goBack={handleBack}
+                signalingUrl={SIGNALING_SERVER_URL}
               />
             </div>
-
-            {!isConnected && mode === "receive" && (
-              <div style={{ gridColumn: "1 / -1" }}>
-                <DiscoverCard
-                  key="discover"
-                  onConnect={(code) => {
-                    setRoomCode(code);
-                    connect(code);
-                  }}
-                  signalingUrl={SIGNALING_SERVER_URL}
-                />
-              </div>
-            )}
 
             {isConnected && (
               <TransferCard

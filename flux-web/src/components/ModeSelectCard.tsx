@@ -1,5 +1,4 @@
-import { motion } from "framer-motion";
-import { ArrowUp, ArrowDown } from "@phosphor-icons/react";
+import { ArrowUp, ArrowDown, Lightning } from "@phosphor-icons/react";
 
 interface Props {
   setMode: (mode: "send" | "receive") => void;
@@ -7,96 +6,95 @@ interface Props {
 
 export function ModeSelectCard({ setMode }: Props) {
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5 }}
+    <div
       style={{
-        background: "rgba(15,15,40,0.8)",
-        backdropFilter: "blur(24px)",
-        WebkitBackdropFilter: "blur(24px)",
-        border: "1px solid rgba(255,255,255,0.06)",
-        borderRadius: "28px",
-        padding: "32px 24px",
         width: "100%",
         maxWidth: "100%",
-        boxSizing: "border-box",
         display: "flex",
         flexDirection: "column",
-        gap: "20px",
+        gap: "24px",
+        animation: "msCardIn 0.4s ease both",
       }}
     >
-      <div>
-        <h2 style={{
-          fontSize: "28px",
-          fontWeight: "800",
-          color: "#ffffff",
-          lineHeight: "1.2",
-          marginBottom: "8px",
+      <style>{`
+        @keyframes msCardIn {
+          from { opacity: 0; transform: translateY(16px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+        .ms-btn {
+          background: rgba(255,255,255,0.04);
+          border: 1px solid rgba(255,255,255,0.08);
+          border-radius: 20px;
+          padding: 20px;
+          cursor: pointer;
+          display: flex;
+          align-items: center;
+          gap: 16px;
+          text-align: left;
+          width: 100%;
+          transition: background 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+        }
+        .ms-btn:hover {
+          background: rgba(255,255,255,0.07);
+          border-color: rgba(255,255,255,0.14);
+          transform: translateY(-1px);
+        }
+        .ms-btn:active { transform: scale(0.98); }
+      `}</style>
+
+      {/* Brand header */}
+      <div style={{ paddingLeft: "4px" }}>
+        <div style={{
+          display: "flex",
+          alignItems: "center",
+          gap: "8px",
+          marginBottom: "6px",
         }}>
-          What would you like to do?
-        </h2>
-        <p style={{ fontSize: "14px", color: "#6b7280" }}>
-          Choose your role to begin
+          <Lightning size={22} weight="fill" color="#6c63ff" />
+          <span style={{
+            fontSize: "26px",
+            fontWeight: "800",
+            background: "linear-gradient(135deg, #6c63ff, #00d4ff)",
+            WebkitBackgroundClip: "text",
+            WebkitTextFillColor: "transparent",
+            backgroundClip: "text",
+            letterSpacing: "-0.5px",
+          }}>
+            Flux
+          </span>
+        </div>
+        <p style={{ fontSize: "14px", color: "#4b5563" }}>
+          Direct device-to-device file transfer
         </p>
       </div>
 
-      <div style={{ display: "flex", flexDirection: "column", gap: "12px" }}>
-        <motion.button
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.97 }}
-          onClick={() => setMode("send")}
-          style={{
-            background: "rgba(255,255,255,0.04)",
-            border: "1px solid rgba(255,255,255,0.08)",
-            borderRadius: "20px",
-            padding: "18px 20px",
-            cursor: "pointer",
-            display: "flex",
-            alignItems: "center",
-            gap: "16px",
-            textAlign: "left",
-          }}
-        >
+      {/* Role buttons */}
+      <div style={{ display: "flex", flexDirection: "column", gap: "10px" }}>
+        <button className="ms-btn" onClick={() => setMode("send")}>
           <div style={{
             width: "52px",
             height: "52px",
             borderRadius: "16px",
-            background: "linear-gradient(135deg, #4f8ef7, #00d4ff)",
+            background: "linear-gradient(135deg, #6c63ff, #00d4ff)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
             flexShrink: 0,
-            boxShadow: "0 4px 15px rgba(79,142,247,0.4)",
+            boxShadow: "0 6px 20px rgba(108,99,255,0.35)",
           }}>
-            <ArrowUp size={26} weight="bold" color="white" />
+            <ArrowUp size={24} weight="bold" color="white" />
           </div>
           <div>
-            <p style={{ fontSize: "17px", fontWeight: "700", color: "#ffffff" }}>
+            <p style={{ fontSize: "16px", fontWeight: "700", color: "#f0f0f8" }}>
               Send Files
             </p>
             <p style={{ fontSize: "13px", color: "#6b7280", marginTop: "3px" }}>
-              Share files or stream your screen
+              Share files to a nearby device
             </p>
           </div>
-        </motion.button>
+        </button>
 
-        <motion.button
-          whileHover={{ scale: 1.02 }}
-          whileTap={{ scale: 0.97 }}
-          onClick={() => setMode("receive")}
-          style={{
-            background: "rgba(255,255,255,0.04)",
-            border: "1px solid rgba(255,255,255,0.08)",
-            borderRadius: "20px",
-            padding: "18px 20px",
-            cursor: "pointer",
-            display: "flex",
-            alignItems: "center",
-            gap: "16px",
-            textAlign: "left",
-          }}
-        >
+        <button className="ms-btn" onClick={() => setMode("receive")}>
           <div style={{
             width: "52px",
             height: "52px",
@@ -106,21 +104,20 @@ export function ModeSelectCard({ setMode }: Props) {
             alignItems: "center",
             justifyContent: "center",
             flexShrink: 0,
-            boxShadow: "0 4px 15px rgba(0,212,255,0.4)",
+            boxShadow: "0 6px 20px rgba(0,212,255,0.3)",
           }}>
-            <ArrowDown size={26} weight="bold" color="white" />
+            <ArrowDown size={24} weight="bold" color="white" />
           </div>
           <div>
-            <p style={{ fontSize: "17px", fontWeight: "700", color: "#ffffff" }}>
+            <p style={{ fontSize: "16px", fontWeight: "700", color: "#f0f0f8" }}>
               Receive Files
             </p>
             <p style={{ fontSize: "13px", color: "#6b7280", marginTop: "3px" }}>
-              Get files from another device
+              Scan QR or enter a room code
             </p>
           </div>
-        </motion.button>
-
+        </button>
       </div>
-    </motion.div>
+    </div>
   );
 }
