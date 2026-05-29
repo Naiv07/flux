@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { WifiHigh, WifiSlash, Spinner, ArrowLeft, QrCode, Copy, ShareNetwork } from "@phosphor-icons/react";
+import { WifiHigh, WifiSlash, Spinner, ArrowLeft, QrCode, Copy, Check, ShareNetwork } from "@phosphor-icons/react";
+import { QRCodeSVG } from "qrcode.react";
 import type { ConnectionState } from "../types";
-import { QRModal } from "./QRModal";
 import { QRScanner } from "./QRScanner";
 
 
@@ -29,8 +29,34 @@ export function ConnectionCard({
 }: Props) {
   const isConnected = connectionState === "connected";
   const isConnecting = connectionState === "connecting";
-  const [showQR, setShowQR] = useState(false);
   const [showScanner, setShowScanner] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const url = `${window.location.origin}?code=${roomCode}`;
+
+  const peerJoined =
+    connectionState === "connecting" &&
+    connectionStatus !== "" &&
+    connectionStatus !== "Waiting for peer..." &&
+    connectionStatus !== "Connecting...";
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(roomCode);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleShare = () => {
+    if (navigator.share) {
+      navigator.share({
+        title: "Join my Flux session",
+        text: `Use code ${roomCode} to receive files`,
+        url,
+      });
+    } else {
+      navigator.clipboard.writeText(url);
+    }
+  };
 
   return (
     <motion.div
@@ -55,44 +81,47 @@ export function ConnectionCard({
         boxShadow: "0 0 40px rgba(108,99,255,0.15)",
       }}
     >
-      {/* Header */}
-      {/* Header with back button */}
-<div style={{ display: "flex", alignItems: "flex-start", gap: "12px" }}>
-  {!isConnected && (
-    <motion.button
-      whileHover={{ scale: 1.05 }}
-      whileTap={{ scale: 0.95 }}
-      onClick={goBack}
-      style={{
-        background: "rgba(255,255,255,0.05)",
-        border: "1px solid rgba(255,255,255,0.08)",
-        borderRadius: "10px",
-        padding: "8px",
-        cursor: "pointer",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        flexShrink: 0,
-      }}
-    >
-      <ArrowLeft size={18} weight="bold" color="#6b7280" />
-    </motion.button>
-  )}
+      <style>{`
+        @keyframes ccSpin { to { transform: rotate(360deg); } }
+      `}</style>
 
-  <div style={{ flex: 1 }}>
-    <h1 style={{
-      fontSize: "28px",
-      fontWeight: "700",
-      background: "linear-gradient(135deg, #6c63ff, #00d4ff)",
-      WebkitBackgroundClip: "text",
-      WebkitTextFillColor: "transparent",
-      backgroundClip: "text",
-    }}>
-      Flux
-    </h1>
-    <p style={{ fontSize: "13px", color: "#6b7280", marginTop: "4px" }}>
-      No cloud. Just connection.
-    </p>
+      {/* Header with back button */}
+      <div style={{ display: "flex", alignItems: "flex-start", gap: "12px" }}>
+        {!isConnected && (
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={goBack}
+            style={{
+              background: "rgba(255,255,255,0.05)",
+              border: "1px solid rgba(255,255,255,0.08)",
+              borderRadius: "10px",
+              padding: "8px",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
+            }}
+          >
+            <ArrowLeft size={18} weight="bold" color="#6b7280" />
+          </motion.button>
+        )}
+
+        <div style={{ flex: 1 }}>
+          <h1 style={{
+            fontSize: "28px",
+            fontWeight: "700",
+            background: "linear-gradient(135deg, #6c63ff, #00d4ff)",
+            WebkitBackgroundClip: "text",
+            WebkitTextFillColor: "transparent",
+            backgroundClip: "text",
+          }}>
+            Flux
+          </h1>
+          <p style={{ fontSize: "13px", color: "#6b7280", marginTop: "4px" }}>
+            No cloud. Just connection.
+          </p>
           <div style={{
             display: "inline-flex",
             alignItems: "center",
@@ -134,7 +163,7 @@ export function ConnectionCard({
         </motion.div>
       </div>
 
-      {/* Status */}
+      {/* Status dot */}
       <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
         <motion.div
           animate={{
@@ -152,13 +181,8 @@ export function ConnectionCard({
           {connectionState}
         </span>
       </div>
-      {connectionStatus && (
-        <p style={{ fontSize: "12px", color: "#6b7280", textAlign: "center", width: "100%" }}>
-          {connectionStatus}
-        </p>
-      )}
 
-      {/* Input */}
+      {/* Input / QR area */}
       {!isConnected && (
         <motion.div
           initial={{ opacity: 0 }}
@@ -166,117 +190,146 @@ export function ConnectionCard({
           style={{ display: "flex", flexDirection: "column", gap: "12px" }}
         >
           {mode === "send" ? (
-            <>
-              <div style={{ textAlign: "center" }}>
-                <p style={{ fontSize: "12px", color: "#6b7280", marginBottom: "12px" }}>
-                  Share this code with the receiver
-                </p>
+            <div style={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              gap: "16px",
+              width: "100%",
+            }}>
+              <p style={{ fontSize: "13px", color: "#6b7280", textAlign: "center" }}>
+                Share with the receiver to connect
+              </p>
+
+              {/* Inline QR code */}
+              <div style={{ position: "relative" }}>
+                {/* Glow */}
                 <div style={{
-                  background: "rgba(108,99,255,0.08)",
-                  border: "1px solid rgba(108,99,255,0.2)",
+                  position: "absolute",
+                  inset: "-8px",
+                  borderRadius: "24px",
+                  background: "radial-gradient(ellipse, rgba(108,99,255,0.18) 0%, rgba(0,212,255,0.07) 60%, transparent 100%)",
+                  filter: "blur(14px)",
+                  pointerEvents: "none",
+                }} />
+                {/* Border ring */}
+                <div style={{
+                  position: "absolute",
+                  inset: "0",
+                  borderRadius: "20px",
+                  border: "1px solid rgba(108,99,255,0.25)",
+                  pointerEvents: "none",
+                }} />
+                {/* White QR container */}
+                <div style={{
+                  background: "#ffffff",
                   borderRadius: "16px",
-                  padding: "20px",
-                  fontSize: "32px",
-                  fontWeight: "700",
-                  letterSpacing: "8px",
-                  color: "#6c63ff",
-                  fontFamily: "monospace",
-                  textAlign: "center",
+                  padding: "14px",
+                  position: "relative",
+                  boxShadow: "inset 0 2px 8px rgba(0,0,0,0.06)",
+                  opacity: peerJoined ? 0.3 : 1,
+                  transition: "opacity 0.4s ease",
                 }}>
-                  {roomCode}
+                  <QRCodeSVG
+                    value={url}
+                    size={200}
+                    bgColor="#ffffff"
+                    fgColor="#06061a"
+                    level="M"
+                    includeMargin={false}
+                    imageSettings={{
+                      src: "/favicon.svg",
+                      x: undefined,
+                      y: undefined,
+                      height: 28,
+                      width: 28,
+                      excavate: true,
+                    }}
+                  />
                 </div>
 
-                {connectionStatus && (
-                  <p style={{
-                    fontSize: "12px",
-                    color: "#6c63ff",
-                    marginTop: "10px",
+                {/* Connecting overlay */}
+                {peerJoined && (
+                  <div style={{
+                    position: "absolute",
+                    inset: "14px",
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: "10px",
+                    borderRadius: "12px",
+                  }}>
+                    <div style={{
+                      width: "32px",
+                      height: "32px",
+                      border: "3px solid rgba(108,99,255,0.2)",
+                      borderTop: "3px solid #6c63ff",
+                      borderRadius: "50%",
+                      animation: "ccSpin 0.8s linear infinite",
+                    }} />
+                    <p style={{ color: "#6c63ff", fontSize: "12px", fontWeight: "600" }}>
+                      Connecting...
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Room code */}
+              <div style={{ textAlign: "center" }}>
+                <p style={{
+                  fontSize: "10px",
+                  color: "#4b5563",
+                  textTransform: "uppercase",
+                  letterSpacing: "2px",
+                  marginBottom: "6px",
+                }}>
+                  Room Code
+                </p>
+                <p style={{
+                  fontSize: "28px",
+                  fontWeight: "800",
+                  color: "#6c63ff",
+                  letterSpacing: "10px",
+                  fontFamily: "monospace",
+                }}>
+                  {roomCode}
+                </p>
+              </div>
+
+              {/* Actions */}
+              <div style={{ display: "flex", gap: "8px", width: "100%" }}>
+                <motion.button
+                  whileTap={{ scale: 0.96 }}
+                  onClick={handleCopy}
+                  style={{
+                    flex: 1,
+                    background: copied ? "rgba(0,255,136,0.08)" : "rgba(255,255,255,0.05)",
+                    border: `1px solid ${copied ? "rgba(0,255,136,0.25)" : "rgba(255,255,255,0.1)"}`,
+                    borderRadius: "12px",
+                    padding: "10px",
+                    fontSize: "13px",
+                    fontWeight: "600",
+                    color: copied ? "#00ff88" : "#e8e8f0",
+                    cursor: "pointer",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
                     gap: "6px",
-                  }}>
-                    <span style={{
-                      display: "inline-block",
-                      width: "6px",
-                      height: "6px",
-                      borderRadius: "50%",
-                      background: "#6c63ff",
-                      boxShadow: "0 0 6px #6c63ff",
-                    }} />
-                    {connectionStatus}
-                  </p>
-                )}
-
-                {/* Primary actions row */}
-                <div style={{
-                  display: "flex",
-                  gap: "8px",
-                  marginTop: "12px",
-                  width: "100%",
-                }}>
-                  <motion.button
-                    whileTap={{ scale: 0.97 }}
-                    onClick={() => navigator.clipboard.writeText(roomCode)}
-                    style={{
-                      flex: 1,
-                      background: "rgba(255,255,255,0.05)",
-                      border: "1px solid rgba(255,255,255,0.1)",
-                      borderRadius: "12px",
-                      padding: "10px",
-                      fontSize: "13px",
-                      fontWeight: "600",
-                      color: "#e8e8f0",
-                      cursor: "pointer",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      gap: "6px",
-                    }}
-                  >
-                    <Copy size={14} weight="bold" />
-                    Copy Code
-                  </motion.button>
-
-                  <motion.button
-                    whileTap={{ scale: 0.97 }}
-                    onClick={() => setShowQR(true)}
-                    style={{
-                      flex: 1,
-                      background: "rgba(108,99,255,0.12)",
-                      border: "1px solid rgba(108,99,255,0.3)",
-                      borderRadius: "12px",
-                      padding: "10px",
-                      fontSize: "13px",
-                      fontWeight: "600",
-                      color: "#6c63ff",
-                      cursor: "pointer",
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      gap: "6px",
-                    }}
-                  >
-                    <QrCode size={14} weight="bold" />
-                    QR Code
-                  </motion.button>
-                </div>
-
-                {/* Share link — full width below */}
-                <motion.button
-                  whileTap={{ scale: 0.97 }}
-                  onClick={() => {
-                    const url = `${window.location.origin}?code=${roomCode}`;
-                    navigator.share
-                      ? navigator.share({
-                          title: "Join my Flux session",
-                          text: `Use code ${roomCode} to receive files`,
-                          url,
-                        })
-                      : navigator.clipboard.writeText(url);
+                    transition: "all 0.2s ease",
                   }}
+                >
+                  {copied
+                    ? <><Check size={13} weight="bold" /> Copied!</>
+                    : <><Copy size={13} weight="bold" /> Copy Code</>
+                  }
+                </motion.button>
+
+                <motion.button
+                  whileTap={{ scale: 0.96 }}
+                  onClick={handleShare}
                   style={{
-                    width: "100%",
+                    flex: 1,
                     background: "rgba(0,212,255,0.06)",
                     border: "1px solid rgba(0,212,255,0.15)",
                     borderRadius: "12px",
@@ -289,14 +342,24 @@ export function ConnectionCard({
                     alignItems: "center",
                     justifyContent: "center",
                     gap: "6px",
-                    marginTop: "4px",
                   }}
                 >
-                  <ShareNetwork size={14} weight="bold" />
+                  <ShareNetwork size={13} weight="bold" />
                   Share Link
                 </motion.button>
               </div>
-            </>
+
+              {/* Status */}
+              {connectionStatus && (
+                <p style={{
+                  fontSize: "12px",
+                  color: peerJoined ? "#6c63ff" : "#6b7280",
+                  textAlign: "center",
+                }}>
+                  {peerJoined ? "Peer found! Establishing connection..." : connectionStatus}
+                </p>
+              )}
+            </div>
           ) : (
             <>
               <input
@@ -377,19 +440,9 @@ export function ConnectionCard({
                 <QrCode size={16} weight="bold" />
                 Scan QR Code
               </motion.button>
-
             </>
           )}
         </motion.div>
-      )}
-
-      {showQR && (
-        <QRModal
-          roomCode={roomCode}
-          onClose={() => setShowQR(false)}
-          connectionState={connectionState}
-          connectionStatus={connectionStatus ?? ""}
-        />
       )}
 
       {showScanner && (

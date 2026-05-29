@@ -8,7 +8,4 @@ export default defineConfig({
     host: true,
   },
   publicDir: 'public',
-  define: {
-    'THREE.Clock': 'THREE.Timer',
-  },
 })
