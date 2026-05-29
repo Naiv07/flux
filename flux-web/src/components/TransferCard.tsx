@@ -1,4 +1,4 @@
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useState } from "react";
 import { motion } from "framer-motion";
 import {
   ArrowUp,
@@ -29,6 +29,35 @@ export function TransferCard({
 }: Props) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const directionRef = useRef<"send" | "receive">("send");
+  const [confirmCancel, setConfirmCancel] = useState(false);
+  const confirmTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleCancelClick = () => {
+    if (confirmCancel) {
+      if (confirmTimerRef.current) clearTimeout(confirmTimerRef.current);
+      confirmTimerRef.current = null;
+      setConfirmCancel(false);
+      cancelTransfer();
+    } else {
+      setConfirmCancel(true);
+      confirmTimerRef.current = setTimeout(() => {
+        setConfirmCancel(false);
+        confirmTimerRef.current = null;
+      }, 3000);
+    }
+  };
+
+  const formatSpeed = (bps: number): string => {
+    if (bps >= 1024 * 1024) return `${(bps / (1024 * 1024)).toFixed(1)} MB/s`;
+    if (bps >= 1024) return `${Math.round(bps / 1024)} KB/s`;
+    return `${Math.round(bps)} B/s`;
+  };
+
+  const formatEta = (secs: number): string => {
+    if (secs < 60) return `${secs}s`;
+    const m = Math.floor(secs / 60), s = secs % 60;
+    return s > 0 ? `${m}m ${s}s` : `${m}m`;
+  };
 
   const isSending   = progress.status === "sending";
   const isReceiving = progress.status === "receiving";
@@ -39,6 +68,14 @@ export function TransferCard({
     if (isSending) directionRef.current = "send";
     if (isReceiving) directionRef.current = "receive";
   }, [isSending, isReceiving]);
+
+  // Clear confirm state when transfer ends
+  useEffect(() => {
+    if (isComplete || isCancelled) {
+      if (confirmTimerRef.current) clearTimeout(confirmTimerRef.current);
+      setConfirmCancel(false);
+    }
+  }, [isComplete, isCancelled]);
   const isComplete  = progress.status === "complete";
   const isCancelled = progress.status === "cancelled";
   const isActive    = isSending || isReceiving || isPaused;
@@ -153,7 +190,7 @@ export function TransferCard({
               <CheckCircle size={16} weight="bold" color="#00ff88" />
             ) : isCancelled ? (
               <X size={16} weight="bold" color="#ff6b6b" />
-            ) : isReceiving || (!isSending && progress.transferred > 0) ? (
+            ) : directionRef.current === "receive" ? (
               <ArrowDown size={16} weight="bold" color="#89CFF0" />
             ) : (
               <ArrowUp size={16} weight="bold" color="#6c63ff" />
@@ -235,11 +272,15 @@ export function TransferCard({
             : isCancelled
             ? "Transfer cancelled"
             : isPaused
-            ? "Paused — tap Resume to continue"
-            : isSending
-            ? "Sending..."
-            : isReceiving
-            ? "Receiving..."
+            ? progress.pausedBy === "remote"
+              ? "Paused by other device — waiting..."
+              : "Paused by you — tap Resume to continue"
+            : (isSending || isReceiving)
+            ? [
+                isSending ? "Sending..." : "Receiving...",
+                progress.speed ? formatSpeed(progress.speed) : null,
+                progress.eta ? `${formatEta(progress.eta)} left` : null,
+              ].filter(Boolean).join(" · ")
             : ""}
         </p>
 
@@ -300,11 +341,11 @@ export function TransferCard({
           )}
 
           <button
-            onClick={cancelTransfer}
+            onClick={handleCancelClick}
             style={{
               flex: 1,
-              background: "rgba(255,59,59,0.1)",
-              border: "1px solid rgba(255,59,59,0.2)",
+              background: confirmCancel ? "rgba(255,59,59,0.25)" : "rgba(255,59,59,0.1)",
+              border: `1px solid ${confirmCancel ? "rgba(255,59,59,0.5)" : "rgba(255,59,59,0.2)"}`,
               borderRadius: "10px",
               padding: "10px",
               fontSize: "13px",
@@ -316,10 +357,11 @@ export function TransferCard({
               justifyContent: "center",
               gap: "6px",
               touchAction: "manipulation",
+              transition: "all 0.15s ease",
             }}
           >
             <X size={14} weight="bold" />
-            Cancel
+            {confirmCancel ? "Confirm?" : "Cancel"}
           </button>
         </div>
       </div>
