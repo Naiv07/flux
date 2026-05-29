@@ -140,7 +140,7 @@ function App() {
         setMode(null);
         setRoomCode("");
         isConnectingRef.current = false;
-      }, 1500);
+      }, 3000);
       return () => clearTimeout(timer);
     }
   }, [connectionState, disconnect]);

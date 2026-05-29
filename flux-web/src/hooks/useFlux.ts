@@ -457,6 +457,11 @@ export function useFlux(onMessage?: (e: MessageEvent) => void) {
           }
 
           case "peer-joined": {
+            // Don't start new WebRTC if relay already active
+            if (relayStartedRef.current) {
+              log("Peer joined — relay already active, skipping WebRTC");
+              break;
+            }
             log("Peer joined — creating offer");
             setConnectionStatus("Peer found — connecting...");
             const pc = createPeerConnection(code);
@@ -475,6 +480,11 @@ export function useFlux(onMessage?: (e: MessageEvent) => void) {
           }
 
           case "offer": {
+            // Don't process new offer if relay already active
+            if (relayStartedRef.current) {
+              log("Offer received but relay already active — ignoring");
+              break;
+            }
             log("Offer received");
             setConnectionStatus("Responding to peer...");
             const pc = createPeerConnection(code);
