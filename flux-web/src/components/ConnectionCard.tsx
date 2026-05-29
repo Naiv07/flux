@@ -2,7 +2,7 @@ import { useState, useRef, useCallback, useEffect } from "react";
 import { motion } from "framer-motion";
 import {
   ArrowLeft, Copy, Check, ShareNetwork, QrCode,
-  WifiHigh, Spinner,
+  WifiHigh,
 } from "@phosphor-icons/react";
 import { QRCodeSVG } from "qrcode.react";
 import type { ConnectionState } from "../types";
