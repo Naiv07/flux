@@ -106,6 +106,8 @@ export function useFlux(onMessage?: (e: MessageEvent) => void) {
   const [activeChannel, setActiveChannel] = useState<RTCDataChannel | null>(null);
 
   const wsRef = useRef<WebSocket | null>(null);
+  const prewarmWsRef = useRef<WebSocket | null>(null);
+  const prewarmReadyRef = useRef(false);
   const pcRef = useRef<RTCPeerConnection | null>(null);
   const channelRef = useRef<RTCDataChannel | WSRelay | null>(null);
   const detectPathRef = useRef<(() => void) | null>(null);
@@ -141,6 +143,11 @@ export function useFlux(onMessage?: (e: MessageEvent) => void) {
     webrtcTimeoutRef.current = null;
     visibilityTimeoutRef.current = null;
     keepAliveRef.current = null;
+    if (prewarmWsRef.current) {
+      prewarmWsRef.current.close();
+      prewarmWsRef.current = null;
+      prewarmReadyRef.current = false;
+    }
     channelRef.current?.close();
     pcRef.current?.close();
     wsRef.current?.close();
@@ -299,6 +306,14 @@ export function useFlux(onMessage?: (e: MessageEvent) => void) {
 
       pc.oniceconnectionstatechange = () => {
         log(`ICE: ${pc.iceConnectionState}`);
+        if (pc.iceConnectionState === "failed") {
+          log("ICE failed — falling back to relay immediately");
+          if (webrtcTimeoutRef.current) {
+            clearTimeout(webrtcTimeoutRef.current);
+            webrtcTimeoutRef.current = null;
+          }
+          startWSRelay(code);
+        }
       };
 
       pc.onconnectionstatechange = () => {
@@ -324,8 +339,25 @@ export function useFlux(onMessage?: (e: MessageEvent) => void) {
       setConnectionStatus("Connecting...");
       log(`Connecting to room: ${code}`);
 
-      const ws = new WebSocket(SIGNALING_SERVER);
-      ws.binaryType = "arraybuffer";
+      let ws: WebSocket;
+      if (prewarmWsRef.current && prewarmReadyRef.current) {
+        log("Reusing pre-warmed WebSocket");
+        ws = prewarmWsRef.current;
+        prewarmWsRef.current = null;
+        prewarmReadyRef.current = false;
+      } else {
+        if (prewarmWsRef.current) {
+          // Pre-warm in-progress but not open yet — discard cleanly
+          prewarmWsRef.current.onopen = null;
+          prewarmWsRef.current.onerror = null;
+          prewarmWsRef.current.onclose = null;
+          prewarmWsRef.current.close();
+          prewarmWsRef.current = null;
+          prewarmReadyRef.current = false;
+        }
+        ws = new WebSocket(SIGNALING_SERVER);
+        ws.binaryType = "arraybuffer";
+      }
       wsRef.current = ws;
 
       // After 8s with no WebRTC — fall back to relay, stay in connecting state
@@ -501,6 +533,30 @@ export function useFlux(onMessage?: (e: MessageEvent) => void) {
      flushIceCandidates, startWSRelay, log, setConnectionStateSafe]
   );
 
+  const prewarm = useCallback(() => {
+    if (prewarmWsRef.current || wsRef.current) return;
+    log("Pre-warming signaling WebSocket");
+    const ws = new WebSocket(SIGNALING_SERVER);
+    ws.binaryType = "arraybuffer";
+    prewarmWsRef.current = ws;
+    prewarmReadyRef.current = false;
+
+    ws.onopen = () => {
+      log("Pre-warm WebSocket ready");
+      prewarmReadyRef.current = true;
+    };
+    ws.onerror = () => {
+      prewarmWsRef.current = null;
+      prewarmReadyRef.current = false;
+    };
+    ws.onclose = () => {
+      if (prewarmWsRef.current === ws) {
+        prewarmWsRef.current = null;
+        prewarmReadyRef.current = false;
+      }
+    };
+  }, [log]);
+
   const connect = useCallback(
     (code: string) => {
       retryCountRef.current = 0;
@@ -583,5 +639,6 @@ export function useFlux(onMessage?: (e: MessageEvent) => void) {
     channel: activeChannel,
     disconnect,
     connectionPath,
+    prewarm,
   };
 }

@@ -140,7 +140,7 @@ export function QRScanner({ onScan, onClose }: Props) {
       if (roomCode.length === 6) {
         setFound(true);
         stopCamera();
-        setTimeout(() => onScan(roomCode.toUpperCase()), 500);
+        setTimeout(() => onScan(roomCode.toUpperCase()), 50);
         return;
       }
     }

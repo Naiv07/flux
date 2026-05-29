@@ -60,6 +60,7 @@ function App() {
       }, 50);
     } else {
       isConnectingRef.current = false;
+      prewarm();
     }
   };
 
@@ -72,6 +73,7 @@ function App() {
     channel,
     disconnect,
     connectionPath,
+    prewarm,
   } = useFlux((e) => onMessageRef.current?.(e));
 
   const {
