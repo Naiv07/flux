@@ -340,11 +340,13 @@ export function useFlux(onMessage?: (e: MessageEvent) => void) {
       log(`Connecting to room: ${code}`);
 
       let ws: WebSocket;
+      let isPrewarmed = false;
       if (prewarmWsRef.current && prewarmReadyRef.current) {
         log("Reusing pre-warmed WebSocket");
         ws = prewarmWsRef.current;
         prewarmWsRef.current = null;
         prewarmReadyRef.current = false;
+        isPrewarmed = true;
       } else {
         if (prewarmWsRef.current) {
           // Pre-warm in-progress but not open yet — discard cleanly
@@ -370,7 +372,7 @@ export function useFlux(onMessage?: (e: MessageEvent) => void) {
         }
       }, 8000);
 
-      ws.onopen = () => {
+      const doJoin = () => {
         log("Signaling server connected");
         setConnectionStatus("Waiting for peer...");
         ws.send(JSON.stringify({ type: "join", roomCode: code }));
@@ -381,6 +383,10 @@ export function useFlux(onMessage?: (e: MessageEvent) => void) {
             ws.send(JSON.stringify({ type: "ping" }));
           }
         }, 25000);
+      };
+
+      ws.onopen = () => {
+        doJoin();
       };
 
       ws.onmessage = async (e) => {
@@ -528,6 +534,11 @@ export function useFlux(onMessage?: (e: MessageEvent) => void) {
       ws.onclose = () => {
         log("Signaling disconnected");
       };
+
+      // Pre-warm socket is already OPEN — onopen will never fire, so join immediately
+      if (isPrewarmed) {
+        doJoin();
+      }
     },
     [cleanup, createPeerConnection, setupDataChannel,
      flushIceCandidates, startWSRelay, log, setConnectionStateSafe]
