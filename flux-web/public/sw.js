@@ -1,4 +1,4 @@
-const CACHE_NAME = "flux-v65";
+const CACHE_NAME = "flux-v66";
 const OFFLINE_URL = "/index.html";
 
 self.addEventListener("install", (event) => {

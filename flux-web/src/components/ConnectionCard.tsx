@@ -273,13 +273,13 @@ export function ConnectionCard({
       <style>{`
         @keyframes ccSpin { to { transform: rotate(360deg); } }
         .pin-box {
-          width: 44px;
-          height: 54px;
+          width: clamp(34px, 11vw, 44px);
+          height: clamp(44px, 14vw, 54px);
           background: rgba(255,255,255,0.04);
           border: 1.5px solid rgba(255,255,255,0.1);
           border-radius: 12px;
           text-align: center;
-          font-size: 22px;
+          font-size: clamp(18px, 5vw, 22px);
           font-weight: 700;
           font-family: monospace;
           color: #e8e8f0;
@@ -287,6 +287,7 @@ export function ConnectionCard({
           caret-color: #6c63ff;
           transition: border-color 0.15s ease, background 0.15s ease;
           -webkit-appearance: none;
+          flex-shrink: 0;
         }
         .pin-box:focus {
           border-color: #6c63ff;
@@ -517,7 +518,7 @@ export function ConnectionCard({
           {receiveTab === "code" && (
             <div style={{ display: "flex", flexDirection: "column", gap: "20px", alignItems: "center" }}>
               {/* 6-box PIN */}
-              <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+              <div style={{ display: "flex", gap: "clamp(4px, 1.5vw, 8px)", alignItems: "center", width: "100%", justifyContent: "center" }}>
                 {chars.map((ch, i) => (
                   <>
                     {i === 3 && (
